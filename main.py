@@ -40,7 +40,7 @@ client = OpenAI()
 
 def openai_llm_parser(prompt):
     completion = client.chat.completions.create(
-        model="gpt-4o-2024-08-06",
+        model="gpt-4o-mini",
         response_format={"type": "json_object"},
         messages=[
             {
@@ -243,7 +243,7 @@ def graphRAG_run(graph_context, user_query):
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Provide the answer for the following question:"},
                 {"role": "user", "content": prompt}
