@@ -254,8 +254,30 @@ def graphRAG_run(graph_context, user_query):
     except Exception as e:
         return f"Error querying LLM: {str(e)}"
     
+def clear_data(neo4j_driver, qdrant_client, collection_name):
+    """
+    Clear all data from Neo4j and the specified Qdrant collection.
+    """
+    # Clear Neo4j data
+    with neo4j_driver.session() as session:
+        session.run("MATCH (n) DETACH DELETE n")
+    
+    # Clear Qdrant collection - recreate it
+    try:
+        qdrant_client.delete_collection(collection_name)
+        print(f"Collection '{collection_name}' deleted successfully.")
+        
+        # Recreate the empty collection
+        vector_dimension = 1536  # Using the standard OpenAI embedding dimension
+        create_collection(qdrant_client, collection_name, vector_dimension)
+        
+    except Exception as e:
+        print(f"Error clearing Qdrant collection: {str(e)}")
+    
+    return True
+    
 if __name__ == "__main__":
-    print("Script started")
+    print("GraphRAG Interactive Console")
     print("Loading environment variables...")
     load_dotenv('.env.local')
     print("Environment variables loaded")
@@ -268,69 +290,98 @@ if __name__ == "__main__":
     )
     print("Clients initialized")
     
-    print("Creating collection...")
+    # Set default collection name
     collection_name = "graphRAGstoreds"
     vector_dimension = 1536
+    
+    # Ensure collection exists
     create_collection(qdrant_client, collection_name, vector_dimension)
-    print("Collection created/verified")
     
-    print("Extracting graph components...")
-    
-    raw_data = """Alice is a data scientist at TechCorp's Seattle office.
-    Bob and Carol collaborate on the Alpha project.
-    Carol transferred to the New York office last year.
-    Dave mentors both Alice and Bob.
-    TechCorp's headquarters is in Seattle.
-    Carol leads the East Coast team.
-    Dave started his career in Seattle.
-    The Alpha project is managed from New York.
-    Alice previously worked with Carol at DataCo.
-    Bob joined the team after Dave's recommendation.
-    Eve runs the West Coast operations from Seattle.
-    Frank works with Carol on client relations.
-    The New York office expanded under Carol's leadership.
-    Dave's team spans multiple locations.
-    Alice visits Seattle monthly for team meetings.
-    Bob's expertise is crucial for the Alpha project.
-    Carol implemented new processes in New York.
-    Eve and Dave collaborated on previous projects.
-    Frank reports to the New York office.
-    TechCorp's main AI research is in Seattle.
-    The Alpha project revolutionized East Coast operations.
-    Dave oversees projects in both offices.
-    Bob's contributions are mainly remote.
-    Carol's team grew significantly after moving to New York.
-    Seattle remains the technology hub for TechCorp."""
-
-    nodes, relationships = extract_graph_components(raw_data)
-    print("Nodes:", nodes)
-    print("Relationships:", relationships)
-    
-    print("Ingesting to Neo4j...")
-    node_id_mapping = ingest_to_neo4j(nodes, relationships)
-    print("Neo4j ingestion complete")
-    
-    print("Ingesting to Qdrant...")
-    ingest_to_qdrant(collection_name, raw_data, node_id_mapping)
-    print("Qdrant ingestion complete")
-
-    query = "How is Bob connected to New York?"
-    print("Starting retriever search...")
-    retriever_result = retriever_search(neo4j_driver, qdrant_client, collection_name, query)
-    print("Retriever results:", retriever_result)
-    
-    print("Extracting entity IDs...")
-    entity_ids = [item.content.split("'id': '")[1].split("'")[0] for item in retriever_result.items]
-    print("Entity IDs:", entity_ids)
-    
-    print("Fetching related graph...")
-    subgraph = fetch_related_graph(neo4j_driver, entity_ids)
-    print("Subgraph:", subgraph)
-    
-    print("Formatting graph context...")
-    graph_context = format_graph_context(subgraph)
-    print("Graph context:", graph_context)
-    
-    print("Running GraphRAG...")
-    answer = graphRAG_run(graph_context, query)
-    print("Final Answer:", answer)
+    # Interactive console loop
+    while True:
+        print("\n" + "="*50)
+        print("GraphRAG Console - Choose an option:")
+        print("1. Ingest data")
+        print("2. Clear all data")
+        print("3. Ask a question")
+        print("4. Exit")
+        print("="*50)
+        
+        choice = input("Enter your choice (1-4): ")
+        
+        if choice == "1":
+            print("\nIngesting Data")
+            print("-" * 30)
+            print("Enter your data (press Enter twice to finish):")
+            
+            # Collect multiline input
+            lines = []
+            while True:
+                line = input()
+                if not line:
+                    break
+                lines.append(line)
+            
+            raw_data = "\n".join(lines)
+            
+            if not raw_data.strip():
+                print("No data entered. Returning to menu.")
+                continue
+                
+            print("Extracting graph components...")
+            nodes, relationships = extract_graph_components(raw_data)
+            print(f"Extracted {len(nodes)} nodes and {len(relationships)} relationships")
+            
+            print("Ingesting to Neo4j...")
+            node_id_mapping = ingest_to_neo4j(nodes, relationships)
+            print("Neo4j ingestion complete")
+            
+            print("Ingesting to Qdrant...")
+            ingest_to_qdrant(collection_name, raw_data, node_id_mapping)
+            print("Qdrant ingestion complete")
+            
+        elif choice == "2":
+            print("\nClearing All Data")
+            confirm = input("Are you sure you want to clear all data? (y/n): ")
+            if confirm.lower() == 'y':
+                print("Clearing data...")
+                clear_data(neo4j_driver, qdrant_client, collection_name)
+                print("All data cleared successfully")
+            else:
+                print("Data clearing cancelled")
+            
+        elif choice == "3":
+            print("\nAsk a Question")
+            query = input("Enter your question: ")
+            
+            if not query.strip():
+                print("No question entered. Returning to menu.")
+                continue
+                
+            print("Starting retriever search...")
+            retriever_result = retriever_search(neo4j_driver, qdrant_client, collection_name, query)
+            
+            if not hasattr(retriever_result, 'items') or not retriever_result.items:
+                print("No results found. Try ingesting some data first.")
+                continue
+                
+            print("Extracting entity IDs...")
+            entity_ids = [item.content.split("'id': '")[1].split("'")[0] for item in retriever_result.items]
+            
+            print("Fetching related graph...")
+            subgraph = fetch_related_graph(neo4j_driver, entity_ids)
+            
+            print("Formatting graph context...")
+            graph_context = format_graph_context(subgraph)
+            
+            print("Running GraphRAG...")
+            answer = graphRAG_run(graph_context, query)
+            print("\nAnswer:", answer.content if hasattr(answer, 'content') else answer)
+            
+        elif choice == "4":
+            print("Exiting GraphRAG Console. Goodbye!")
+            neo4j_driver.close()
+            break
+            
+        else:
+            print("Invalid choice. Please enter a number between 1 and 4.")
