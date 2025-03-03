@@ -312,33 +312,30 @@ if __name__ == "__main__":
         if choice == "1":
             print("\nIngesting Data")
             print("-" * 30)
-            print("Enter your data (press Enter twice to finish):")
-            
-            # Collect multiline input
-            lines = []
-            while True:
-                line = input()
-                if not line:
-                    break
-                lines.append(line)
-            
-            raw_data = "\n".join(lines)
-            
-            if not raw_data.strip():
-                print("No data entered. Returning to menu.")
-                continue
+            try:
+                with open('sample_data.txt', 'r', encoding='utf-8') as file:
+                    raw_data = file.read()
                 
-            print("Extracting graph components...")
-            nodes, relationships = extract_graph_components(raw_data)
-            print(f"Extracted {len(nodes)} nodes and {len(relationships)} relationships")
-            
-            print("Ingesting to Neo4j...")
-            node_id_mapping = ingest_to_neo4j(nodes, relationships)
-            print("Neo4j ingestion complete")
-            
-            print("Ingesting to Qdrant...")
-            ingest_to_qdrant(collection_name, raw_data, node_id_mapping)
-            print("Qdrant ingestion complete")
+                if not raw_data.strip():
+                    print("No data found in file. Returning to menu.")
+                    continue
+                    
+                print("Extracting graph components...")
+                nodes, relationships = extract_graph_components(raw_data)
+                print(f"Extracted {len(nodes)} nodes and {len(relationships)} relationships")
+                
+                print("Ingesting to Neo4j...")
+                node_id_mapping = ingest_to_neo4j(nodes, relationships)
+                print("Neo4j ingestion complete")
+                
+                print("Ingesting to Qdrant...")
+                ingest_to_qdrant(collection_name, raw_data, node_id_mapping)
+                print("Qdrant ingestion complete")
+                
+            except FileNotFoundError:
+                print("Error: sample_data.txt file not found. Please ensure the file exists in the current directory.")
+            except Exception as e:
+                print(f"Error reading file: {str(e)}")
             
         elif choice == "2":
             print("\nClearing All Data")
