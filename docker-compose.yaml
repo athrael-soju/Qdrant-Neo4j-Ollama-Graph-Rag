@@ -1,0 +1,47 @@
+services:
+  neo4j:
+    image: neo4j:5.26.2
+    container_name: gr_neo4j
+    ports:
+      - '7474:7474' # HTTP interface
+      - '7687:7687' # Bolt protocol
+    environment:
+      - NEO4J_AUTH=neo4j/morpheus4j # Replace 'test' with your desired password
+    volumes:
+      - neo4j_data:/data
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: gr_qdrant
+    ports:
+      - '6333:6333' # Qdrant REST API port
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  # Ollama for running open source models
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: gr_ollama
+  #   ports:
+  #     - '11434:11434'
+  #   volumes:
+  #     - ollama_models:/root/.ollama
+
+  # Using the official unstructured-api container
+  # unstructured-api:
+  #   image: quay.io/unstructured-io/unstructured-api:latest
+  #   platform: linux/amd64  # Use x86 image with emulation on Apple Silicon
+  #   container_name: gr_unstructured
+  #   ports:
+  #     - '8000:8000'
+  #   environment:
+  #     - METRICS_ENABLED=false
+  #     - LOG_LEVEL=INFO
+  #   command: ["--port", "8000", "--host", "0.0.0.0"]
+  #   volumes:
+  #     - unstructured_cache:/tmp/unstructured_cache
+
+volumes:
+  neo4j_data:
+  qdrant_storage:
+  # unstructured_cache:
