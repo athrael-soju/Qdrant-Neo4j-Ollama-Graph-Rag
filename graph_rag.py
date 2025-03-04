@@ -10,6 +10,9 @@ import uuid
 import os
 import concurrent.futures
 import time
+import json
+# Import the spaCy parser functions
+from spacy_parser import extract_entities_and_relationships as spacy_extract
 
 # Define data models
 class single(BaseModel):
@@ -63,10 +66,33 @@ def openai_llm_parser(prompt):
     content = cached_openai_call(prompt)
     return GraphComponents.model_validate_json(content)
     
-def process_data_chunk(chunk_text):
+def spacy_parser(text):
+    """Parse text into graph components using spaCy"""
+    # Use spaCy to extract entities and relationships
+    entities, relationships = spacy_extract(text)
+    
+    # Convert to the same format as the OpenAI parser
+    graph_components = []
+    
+    for rel in relationships:
+        graph_components.append(
+            single(
+                node=rel["source"],
+                target_node=rel["target"],
+                relationship=rel["type"]
+            )
+        )
+    
+    return GraphComponents(graph=graph_components)
+
+def process_data_chunk(chunk_text, parser="llm"):
     """Process a chunk of text to extract nodes and relationships."""
     prompt = f"Extract nodes and relationships from the following text:\n{chunk_text}"
-    parsed_response = openai_llm_parser(prompt).graph
+    
+    if parser == "spacy":
+        parsed_response = spacy_parser(chunk_text).graph
+    else:  # Default to LLM
+        parsed_response = openai_llm_parser(prompt).graph
     
     chunk_nodes = {}
     chunk_relationships = []
@@ -93,7 +119,7 @@ def process_data_chunk(chunk_text):
             
     return chunk_nodes, chunk_relationships
 
-def extract_graph_components_parallel(raw_data, chunk_size=5000, max_workers=4):
+def extract_graph_components_parallel(raw_data, chunk_size=5000, max_workers=4, parser="llm"):
     """
     Extract graph components in parallel using multiple workers.
     
@@ -101,6 +127,7 @@ def extract_graph_components_parallel(raw_data, chunk_size=5000, max_workers=4):
         raw_data: The raw text data to process
         chunk_size: Size of each text chunk in characters
         max_workers: Maximum number of parallel workers
+        parser: The parser to use ("llm" or "spacy")
     """
     # Split the text into chunks of roughly equal size
     chunks = []
@@ -123,7 +150,7 @@ def extract_graph_components_parallel(raw_data, chunk_size=5000, max_workers=4):
     
     if len(chunks) == 1:
         # If there's only one chunk, no need for parallel processing
-        return extract_graph_components(raw_data)
+        return extract_graph_components(raw_data, parser)
     
     # Process chunks in parallel
     all_nodes = {}
@@ -132,7 +159,7 @@ def extract_graph_components_parallel(raw_data, chunk_size=5000, max_workers=4):
     print(f"Processing {len(chunks)} chunks in parallel with {max_workers} workers...")
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(process_data_chunk, chunk): i for i, chunk in enumerate(chunks)}
+        futures = {executor.submit(process_data_chunk, chunk, parser): i for i, chunk in enumerate(chunks)}
         
         for future in concurrent.futures.as_completed(futures):
             chunk_index = futures[future]
@@ -176,11 +203,13 @@ def extract_graph_components_parallel(raw_data, chunk_size=5000, max_workers=4):
     
     return all_nodes, all_relationships
 
-def extract_graph_components(raw_data):
+def extract_graph_components(raw_data, parser="llm"):
     """Extract graph components from text data"""
-    prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
-
-    parsed_response = openai_llm_parser(prompt).graph  # Assuming this returns a list of dictionaries
+    if parser == "spacy":
+        parsed_response = spacy_parser(raw_data).graph
+    else:  # Default to LLM
+        prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
+        parsed_response = openai_llm_parser(prompt).graph
 
     nodes = {}
     relationships = []

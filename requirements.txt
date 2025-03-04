@@ -2,3 +2,4 @@ neo4j-graphrag[qdrant]
 python-dotenv
 pydantic
 openai
+spacy>=3.7.0

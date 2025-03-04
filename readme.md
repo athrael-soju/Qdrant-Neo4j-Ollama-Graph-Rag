@@ -2,12 +2,14 @@
 
 ## Overview
 
-This project demonstrates how to build a Graph Retrieval-Augmented Generation (RAG) pipeline that extracts graph relationships from raw text using OpenAI’s GPT models, stores and queries these relationships in a Neo4j graph database, and enhances the process with Qdrant’s vector search capabilities. By integrating these technologies, users can extract structured insights from unstructured text and perform complex graph queries to generate context-aware natural language responses.
+This project demonstrates how to build a Graph Retrieval-Augmented Generation (RAG) pipeline that extracts graph relationships from raw text using either OpenAI's GPT models or spaCy's NLP capabilities, stores and queries these relationships in a Neo4j graph database, and enhances the process with Qdrant's vector search capabilities. By integrating these technologies, users can extract structured insights from unstructured text and perform complex graph queries to generate context-aware natural language responses.
 
 The system is built on three main components:
 
-- **Vector Search & RAG**: Uses Qdrant to index text embeddings for semantic search and combines these results with graph data to generate informed responses via OpenAI’s GPT.
-- **Graph Extraction**: Leverages OpenAI’s GPT to parse text and extract entities (nodes) and relationships (edges) in a structured JSON format.
+- **Vector Search & RAG**: Uses Qdrant to index text embeddings for semantic search and combines these results with graph data to generate informed responses via OpenAI's GPT.
+- **Graph Extraction**: You can choose between:
+  - **OpenAI GPT**: Leverages GPT models to parse text and extract entities and relationships in a structured JSON format (requires API key and may incur costs).
+  - **spaCy**: Uses local NLP processing for entity recognition and relationship extraction (faster, free, but potentially less accurate).
 - **Graph Storage & Querying**: Utilizes Neo4j to ingest, store, and query the extracted graph components, enabling advanced relationship and subgraph queries.
 
 ---
@@ -18,7 +20,7 @@ Before running any code, ensure you have the necessary API keys and database cre
 
 - **Qdrant**: API key and URL for your Qdrant instance.
 - **Neo4j**: Connection URI, username, and password.
-- **OpenAI**: API key for accessing GPT models and embeddings.
+- **OpenAI** (Optional if using spaCy parser): API key for OpenAI services.
 
 ### Prerequisites
 
@@ -60,6 +62,15 @@ Before running any code, ensure you have the necessary API keys and database cre
    OPENAI_API_KEY=your_openai_api_key
    ```
 
+### Installing spaCy
+
+If you plan to use the spaCy parser, install the required language model:
+
+```bash
+# After installing requirements.txt
+python -m spacy download en_core_web_sm
+```
+
 ---
 
 ## Usage
@@ -76,7 +87,7 @@ The script performs the following steps:
    Loads API keys and database credentials from `.env`.
 
 2. **Graph Extraction:**  
-   Uses OpenAI’s GPT model to extract graph components (nodes and relationships) from raw text input.
+   Uses OpenAI's GPT model to extract graph components (nodes and relationships) from raw text input.
 
 3. **Data Ingestion:**
 
@@ -87,7 +98,47 @@ The script performs the following steps:
    Performs a vector search in Qdrant to identify relevant sections of the text, then queries Neo4j to fetch related graph context.
 
 5. **Retrieval-Augmented Generation (RAG):**  
-   Combines the graph context with the vector search results to generate a detailed answer to a user query via OpenAI’s GPT.
+   Combines the graph context with the vector search results to generate a detailed answer to a user query via OpenAI's GPT.
+
+Upon running the main application:
+
+```
+python main.py
+```
+
+You will be presented with a console-based interactive menu with several options:
+
+1. **Ingest Data:**  
+   Processes raw text data from the sample file, extracts graph components, and ingests them into Neo4j and Qdrant.
+
+2. **Clear All Data:**  
+   Wipes all data from both Neo4j and Qdrant.
+
+3. **Ask a Question:**  
+   Enter a natural language query to search the knowledge graph and receive an AI-generated response.
+
+4. **Configure Optimization Settings:**  
+   Adjust parameters for parallel processing, workers, batch sizes, and chunking.
+
+5. **Choose Parser:**  
+   Select which parser to use for extracting entities and relationships:
+   - **OpenAI LLM**: More accurate but requires an API key and incurs costs.
+   - **spaCy**: Faster, free local processing but may be less accurate.
+
+6. **Exit:**  
+   Close the application.
+
+### Parser Comparison
+
+**OpenAI LLM Parser:**
+- Pros: Higher accuracy, better relationship extraction, understands context
+- Cons: Requires API key, incurs costs, slower processing time
+
+**spaCy Parser:**
+- Pros: Free, faster processing, works offline
+- Cons: May miss complex relationships, less context-aware
+
+Choose the parser based on your needs: use spaCy for quick testing or when budget is a concern, and OpenAI for production-quality relationship extraction.
 
 Console logs will provide detailed information on each step, including extraction progress, ingestion status, retrieval results, and the final generated response.
 
@@ -98,7 +149,7 @@ Console logs will provide detailed information on each step, including extractio
 ### Graph Extraction
 
 - **Functionality:**  
-  Uses a custom prompt with OpenAI’s GPT model to extract entities and their relationships from unstructured text.
+  Uses a custom prompt with OpenAI's GPT model to extract entities and their relationships from unstructured text.
 - **Output:**  
   A structured JSON object containing:
   - **`graph`**: An array of relationship objects, each with:
@@ -125,7 +176,7 @@ Console logs will provide detailed information on each step, including extractio
 - **Functionality:**  
   Integrates graph context (from Neo4j) with vector search results (from Qdrant) to enrich the prompt for natural language generation.
 - **Usage:**  
-  Uses OpenAI’s GPT to generate detailed, context-aware answers to user queries.
+  Uses OpenAI's GPT to generate detailed, context-aware answers to user queries.
 
 ---
 

@@ -31,6 +31,9 @@ if __name__ == "__main__":
     batch_size = 100
     chunk_size = 5000
     
+    # Set default parser
+    parser_type = "llm"  # Default parser type (llm or spacy)
+    
     # Ensure collection exists
     create_collection(qdrant_client, collection_name, vector_dimension)
     
@@ -42,14 +45,16 @@ if __name__ == "__main__":
         print("2. Clear all data")
         print("3. Ask a question")
         print("4. Configure optimization settings")
-        print("5. Exit")
+        print("5. Choose parser (spaCy or LLM)")
+        print("6. Exit")
         print("="*50)
         
-        choice = input("Enter your choice (1-5): ")
+        choice = input("Enter your choice (1-6): ")
         
         if choice == "1":
             print("\nIngesting Data")
             print("-" * 30)
+            print(f"Using parser: {parser_type.upper()}")
             try:
                 start_time = time.time()
                 with open('sample_data.txt', 'r', encoding='utf-8') as file:
@@ -61,9 +66,9 @@ if __name__ == "__main__":
                     
                 print("Extracting graph components...")
                 if parallel_processing:
-                    nodes, relationships = extract_graph_components_parallel(raw_data, chunk_size=chunk_size, max_workers=max_workers)
+                    nodes, relationships = extract_graph_components_parallel(raw_data, chunk_size=chunk_size, max_workers=max_workers, parser=parser_type)
                 else:
-                    nodes, relationships = extract_graph_components(raw_data)
+                    nodes, relationships = extract_graph_components(raw_data, parser=parser_type)
                     
                 print(f"Extracted {len(nodes)} nodes and {len(relationships)} relationships")
                 
@@ -184,9 +189,26 @@ if __name__ == "__main__":
                 print("Invalid choice. Please enter a number between 1 and 5.")
             
         elif choice == "5":
+            print("\nChoose Parser")
+            print("-" * 30)
+            print("1. OpenAI LLM (More accurate but requires API key and costs money)")
+            print("2. spaCy (Faster, free, but may be less accurate)")
+            
+            parser_choice = input("Select parser type (1-2): ")
+            
+            if parser_choice == "1":
+                parser_type = "llm"
+                print("Parser set to OpenAI LLM")
+            elif parser_choice == "2":
+                parser_type = "spacy"
+                print("Parser set to spaCy (local NLP)")
+            else:
+                print("Invalid choice. Parser remains unchanged.")
+            
+        elif choice == "6":
             print("Exiting GraphRAG Console. Goodbye!")
             neo4j_driver.close()
             break
             
         else:
-            print("Invalid choice. Please enter a number between 1 and 5.")
+            print("Invalid choice. Please enter a number between 1 and 6.")
