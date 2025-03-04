@@ -1,298 +1,35 @@
-from neo4j import GraphDatabase
-from qdrant_client import QdrantClient, models
-from dotenv import load_dotenv
-from pydantic import BaseModel
-from openai import OpenAI
-from collections import defaultdict
-from neo4j_graphrag.retrievers import QdrantNeo4jRetriever
-import uuid
-import os
-
-# Load environment variables
-load_dotenv()
-
-# Get credentials from environment variables
-qdrant_key = os.getenv("QDRANT_KEY")
-qdrant_url = os.getenv("QDRANT_URL")
-neo4j_uri = os.getenv("NEO4J_URI")
-neo4j_username = os.getenv("NEO4J_USERNAME")
-neo4j_password = os.getenv("NEO4J_PASSWORD")
-openai_key = os.getenv("OPENAI_API_KEY")
-
-# Initialize Neo4j driver
-neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
-
-# Initialize Qdrant client
-qdrant_client = QdrantClient(
-    url=qdrant_url,
-    api_key=qdrant_key
+import time
+from graph_rag import (
+    initialize_clients,
+    create_collection,
+    extract_graph_components,
+    extract_graph_components_parallel,
+    ingest_to_neo4j,
+    ingest_to_qdrant,
+    retriever_search,
+    fetch_related_graph,
+    format_graph_context,
+    graphRAG_run,
+    clear_data
 )
 
-class single(BaseModel):
-    node: str
-    target_node: str
-    relationship: str
-
-class GraphComponents(BaseModel):
-    graph: list[single]
-
-client = OpenAI()
-
-def openai_llm_parser(prompt):
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": 
-                   
-                """ You are a precise graph relationship extractor. Extract all 
-                    relationships from the text and format them as a JSON object 
-                    with this exact structure:
-                    {
-                        "graph": [
-                            {"node": "Person/Entity", 
-                             "target_node": "Related Entity", 
-                             "relationship": "Type of Relationship"},
-                            ...more relationships...
-                        ]
-                    }
-                    Include ALL relationships mentioned in the text, including 
-                    implicit ones. Be thorough and precise. """
-                    
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-    
-    return GraphComponents.model_validate_json(completion.choices[0].message.content)
-    
-def extract_graph_components(raw_data):
-    prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
-
-    parsed_response = openai_llm_parser(prompt)  # Assuming this returns a list of dictionaries
-    parsed_response = parsed_response.graph  # Assuming the 'graph' structure is a key in the parsed response
-
-    nodes = {}
-    relationships = []
-
-    for entry in parsed_response:
-        node = entry.node
-        target_node = entry.target_node  # Get target node if available
-        relationship = entry.relationship  # Get relationship if available
-
-        # Add nodes to the dictionary with a unique ID
-        if node not in nodes:
-            nodes[node] = str(uuid.uuid4())
-
-        if target_node and target_node not in nodes:
-            nodes[target_node] = str(uuid.uuid4())
-
-        # Add relationship to the relationships list with node IDs
-        if target_node and relationship:
-            relationships.append({
-                "source": nodes[node],
-                "target": nodes[target_node],
-                "type": relationship
-            })
-
-    return nodes, relationships
-
-def ingest_to_neo4j(nodes, relationships):
-    """
-    Ingest nodes and relationships into Neo4j.
-    """
-
-    with neo4j_driver.session() as session:
-        # Create nodes in Neo4j
-        for name, node_id in nodes.items():
-            session.run(
-                "CREATE (n:Entity {id: $id, name: $name})",
-                id=node_id,
-                name=name
-            )
-
-        # Create relationships in Neo4j
-        for relationship in relationships:
-            session.run(
-                "MATCH (a:Entity {id: $source_id}), (b:Entity {id: $target_id}) "
-                "CREATE (a)-[:RELATIONSHIP {type: $type}]->(b)",
-                source_id=relationship["source"],
-                target_id=relationship["target"],
-                type=relationship["type"]
-            )
-
-    return nodes
-
-def create_collection(client, collection_name, vector_dimension):
-  # Try to fetch the collection status
-    try:
-        collection_info = client.get_collection(collection_name)
-        print(f"Skipping creating collection; '{collection_name}' already exists.")
-    except Exception as e:
-        # If collection does not exist, an error will be thrown, so we create the collection
-        if 'Not found: Collection' in str(e):
-            print(f"Collection '{collection_name}' not found. Creating it now...")
-
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config=models.VectorParams(size=vector_dimension, distance=models.Distance.COSINE)
-            )
-
-            print(f"Collection '{collection_name}' created successfully.")
-        else:
-            print(f"Error while checking collection: {e}")
-
-def openai_embeddings(text):
-    response = client.embeddings.create(
-        input=text,
-        model="text-embedding-3-small"
-    )
-    
-    return response.data[0].embedding
-
-def ingest_to_qdrant(collection_name, raw_data, node_id_mapping):
-    embeddings = [openai_embeddings(paragraph) for paragraph in raw_data.split("\n")]
-
-    qdrant_client.upsert(
-        collection_name=collection_name,
-        points=[
-            {
-                "id": str(uuid.uuid4()),
-                "vector": embedding,
-                "payload": {"id": node_id}
-            }
-            for node_id, embedding in zip(node_id_mapping.values(), embeddings)
-        ]
-    )
-
-def retriever_search(neo4j_driver, qdrant_client, collection_name, query):
-    retriever = QdrantNeo4jRetriever(
-        driver=neo4j_driver,
-        client=qdrant_client,
-        collection_name=collection_name,
-        id_property_external="id",
-        id_property_neo4j="id",
-    )
-
-    results = retriever.search(query_vector=openai_embeddings(query), top_k=5)
-    
-    return results
-
-def fetch_related_graph(neo4j_client, entity_ids):
-    query = """
-    MATCH (e:Entity)-[r1]-(n1)-[r2]-(n2)
-    WHERE e.id IN $entity_ids
-    RETURN e, r1 as r, n1 as related, r2, n2
-    UNION
-    MATCH (e:Entity)-[r]-(related)
-    WHERE e.id IN $entity_ids
-    RETURN e, r, related, null as r2, null as n2
-    """
-    with neo4j_client.session() as session:
-        result = session.run(query, entity_ids=entity_ids)
-        subgraph = []
-        for record in result:
-            subgraph.append({
-                "entity": record["e"],
-                "relationship": record["r"],
-                "related_node": record["related"]
-            })
-            if record["r2"] and record["n2"]:
-                subgraph.append({
-                    "entity": record["related"],
-                    "relationship": record["r2"],
-                    "related_node": record["n2"]
-                })
-    return subgraph
-
-def format_graph_context(subgraph):
-    nodes = set()
-    edges = []
-
-    for entry in subgraph:
-        entity = entry["entity"]
-        related = entry["related_node"]
-        relationship = entry["relationship"]
-
-        nodes.add(entity["name"])
-        nodes.add(related["name"])
-
-        edges.append(f"{entity['name']} {relationship['type']} {related['name']}")
-
-    return {"nodes": list(nodes), "edges": edges}
-
-def graphRAG_run(graph_context, user_query):
-    nodes_str = ", ".join(graph_context["nodes"])
-    edges_str = "; ".join(graph_context["edges"])
-    prompt = f"""
-    You are an intelligent assistant with access to the following knowledge graph:
-
-    Nodes: {nodes_str}
-
-    Edges: {edges_str}
-
-    Using this graph, Answer the following question:
-
-    User Query: "{user_query}"
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Provide the answer for the following question:"},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.choices[0].message
-    
-    except Exception as e:
-        return f"Error querying LLM: {str(e)}"
-    
-def clear_data(neo4j_driver, qdrant_client, collection_name):
-    """
-    Clear all data from Neo4j and the specified Qdrant collection.
-    """
-    # Clear Neo4j data
-    with neo4j_driver.session() as session:
-        session.run("MATCH (n) DETACH DELETE n")
-    
-    # Clear Qdrant collection - recreate it
-    try:
-        qdrant_client.delete_collection(collection_name)
-        print(f"Collection '{collection_name}' deleted successfully.")
-        
-        # Recreate the empty collection
-        vector_dimension = 1536  # Using the standard OpenAI embedding dimension
-        create_collection(qdrant_client, collection_name, vector_dimension)
-        
-    except Exception as e:
-        print(f"Error clearing Qdrant collection: {str(e)}")
-    
-    return True
-    
 if __name__ == "__main__":
     print("GraphRAG Interactive Console")
-    print("Loading environment variables...")
-    load_dotenv('.env.local')
-    print("Environment variables loaded")
+    print("Loading environment variables and initializing clients...")
     
-    print("Initializing clients...")
-    neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
-    qdrant_client = QdrantClient(
-        url=qdrant_url,
-        api_key=qdrant_key
-    )
+    # Initialize clients
+    neo4j_driver, qdrant_client = initialize_clients()
     print("Clients initialized")
     
     # Set default collection name
     collection_name = "graphRAGstoreds"
     vector_dimension = 1536
+    
+    # Set default optimization parameters
+    parallel_processing = True
+    max_workers = 4
+    batch_size = 100
+    chunk_size = 5000
     
     # Ensure collection exists
     create_collection(qdrant_client, collection_name, vector_dimension)
@@ -304,15 +41,17 @@ if __name__ == "__main__":
         print("1. Ingest data")
         print("2. Clear all data")
         print("3. Ask a question")
-        print("4. Exit")
+        print("4. Configure optimization settings")
+        print("5. Exit")
         print("="*50)
         
-        choice = input("Enter your choice (1-4): ")
+        choice = input("Enter your choice (1-5): ")
         
         if choice == "1":
             print("\nIngesting Data")
             print("-" * 30)
             try:
+                start_time = time.time()
                 with open('sample_data.txt', 'r', encoding='utf-8') as file:
                     raw_data = file.read()
                 
@@ -321,22 +60,30 @@ if __name__ == "__main__":
                     continue
                     
                 print("Extracting graph components...")
-                nodes, relationships = extract_graph_components(raw_data)
+                if parallel_processing:
+                    nodes, relationships = extract_graph_components_parallel(raw_data, chunk_size=chunk_size, max_workers=max_workers)
+                else:
+                    nodes, relationships = extract_graph_components(raw_data)
+                    
                 print(f"Extracted {len(nodes)} nodes and {len(relationships)} relationships")
                 
                 print("Ingesting to Neo4j...")
-                node_id_mapping = ingest_to_neo4j(nodes, relationships)
+                node_id_mapping = ingest_to_neo4j(neo4j_driver, nodes, relationships, batch_size=batch_size)
                 print("Neo4j ingestion complete")
                 
                 print("Ingesting to Qdrant...")
-                ingest_to_qdrant(collection_name, raw_data, node_id_mapping)
+                ingest_to_qdrant(qdrant_client, collection_name, raw_data, node_id_mapping)
                 print("Qdrant ingestion complete")
+                
+                end_time = time.time()
+                processing_time = end_time - start_time
+                print(f"\nTotal processing time: {processing_time:.2f} seconds")
                 
             except FileNotFoundError:
                 print("Error: sample_data.txt file not found. Please ensure the file exists in the current directory.")
             except Exception as e:
                 print(f"Error reading file: {str(e)}")
-            
+        
         elif choice == "2":
             print("\nClearing All Data")
             confirm = input("Are you sure you want to clear all data? (y/n): ")
@@ -355,6 +102,7 @@ if __name__ == "__main__":
                 print("No question entered. Returning to menu.")
                 continue
                 
+            start_time = time.time()
             print("Starting retriever search...")
             retriever_result = retriever_search(neo4j_driver, qdrant_client, collection_name, query)
             
@@ -373,12 +121,72 @@ if __name__ == "__main__":
             
             print("Running GraphRAG...")
             answer = graphRAG_run(graph_context, query)
+            end_time = time.time()
+            query_time = end_time - start_time
+            
             print("\nAnswer:", answer.content if hasattr(answer, 'content') else answer)
+            print(f"Query processing time: {query_time:.2f} seconds")
             
         elif choice == "4":
+            print("\nConfigure Optimization Settings")
+            print("-" * 30)
+            print(f"Current settings:")
+            print(f"1. Parallel processing: {parallel_processing}")
+            print(f"2. Number of workers: {max_workers}")
+            print(f"3. Batch size: {batch_size}")
+            print(f"4. Chunk size: {chunk_size}")
+            print(f"5. Return to main menu")
+            
+            setting_choice = input("\nSelect setting to change (1-5): ")
+            
+            if setting_choice == "1":
+                parallel_choice = input("Enable parallel processing? (y/n): ")
+                parallel_processing = parallel_choice.lower() == 'y'
+                print(f"Parallel processing {'enabled' if parallel_processing else 'disabled'}")
+                
+            elif setting_choice == "2":
+                try:
+                    new_workers = int(input(f"Enter number of workers (current: {max_workers}): "))
+                    if new_workers > 0:
+                        max_workers = new_workers
+                        print(f"Workers set to {max_workers}")
+                    else:
+                        print("Number of workers must be positive")
+                except ValueError:
+                    print("Invalid input, must be a number")
+                    
+            elif setting_choice == "3":
+                try:
+                    new_batch_size = int(input(f"Enter batch size (current: {batch_size}): "))
+                    if new_batch_size > 0:
+                        batch_size = new_batch_size
+                        print(f"Batch size set to {batch_size}")
+                    else:
+                        print("Batch size must be positive")
+                except ValueError:
+                    print("Invalid input, must be a number")
+                    
+            elif setting_choice == "4":
+                try:
+                    new_chunk_size = int(input(f"Enter chunk size in characters (current: {chunk_size}): "))
+                    if new_chunk_size > 0:
+                        chunk_size = new_chunk_size
+                        print(f"Chunk size set to {chunk_size}")
+                    else:
+                        print("Chunk size must be positive")
+                except ValueError:
+                    print("Invalid input, must be a number")
+                    
+            elif setting_choice == "5":
+                pass  # Return to main menu
+                
+            else:
+                print("Invalid choice. Please enter a number between 1 and 5.")
+            
+        elif choice == "5":
             print("Exiting GraphRAG Console. Goodbye!")
             neo4j_driver.close()
             break
             
         else:
-            print("Invalid choice. Please enter a number between 1 and 4.")
+            print("Invalid choice. Please enter a number between 1 and 5.")
