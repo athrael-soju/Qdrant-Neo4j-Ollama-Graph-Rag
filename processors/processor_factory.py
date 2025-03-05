@@ -70,5 +70,6 @@ def get_processor() -> Dict[str, Any]:
         "Single": Single,
         "VECTOR_DIMENSION": VECTOR_DIMENSION,
         "LLM_MODEL": LLM_MODEL,
-        "EMBEDDING_MODEL": EMBEDDING_MODEL
+        "EMBEDDING_MODEL": EMBEDDING_MODEL,
+        "MODEL_PROVIDER": MODEL_PROVIDER
     } 
