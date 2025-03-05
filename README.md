@@ -1,5 +1,5 @@
-# GraphRAG
 ![image](https://github.com/user-attachments/assets/900cdf8f-5dca-4105-983b-8534632d78fd)
+# GraphRAG
 
 A knowledge graph-based Retrieval-Augmented Generation (RAG) system that allows you to ingest text data, extract entities and relationships, and query the resulting knowledge graph.
 
