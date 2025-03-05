@@ -63,15 +63,6 @@ cp .env.example .env
    - Add your API keys or connection details
    - Configure performance parameters as needed
 
-7. If using Ollama, pull the required models:
-```bash
-# Pull the embedding model
-ollama pull nomic-embed-text
-
-# Pull the LLM for inference
-ollama pull qwen2.5:3b
-```
-
 ## Usage
 
 ### Running the Interactive Console
@@ -118,7 +109,26 @@ Current LLM provider: OLLAMA
 Enter your choice (1-5): 3
 
 Ask a Question
-Enter your question: Who is Dave?
+Enter your question: Tell me about Carol
+
+Starting retriever search...
+Extracting entity IDs...
+Fetching related graph...
+Formatting graph context...
+Running GraphRAG...
+
+Answer: Based on the information provided in the knowledge graph, here's an overview of Carol:
+
+Carol has several roles and responsibilities:
+1. She led the expansion of the New York office under her leadership.
+2. She implemented new processes in the New York office.
+3. She leads the East Coast team for TechCorp.
+4. Her expertise is crucial for the Alpha project managed from New York office.
+
+These roles were all held during or after she transferred to the New York office last year, and Carol was mentored by Alice (data scientist at TechCorp's Seattle office) who also worked with Dave on the Alpha project.
+
+Carol appears to be an important figure within TechCorp, especially in managing the New York office and its team. She is involved with several projects and teams across the organization.
+Query processing time: 54.46 seconds (Answer generation: 54.25 seconds)
 ```
 
 ## Configuration Options

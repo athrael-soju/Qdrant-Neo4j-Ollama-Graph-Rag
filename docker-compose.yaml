@@ -6,7 +6,7 @@ services:
       - '7474:7474' # HTTP interface
       - '7687:7687' # Bolt protocol
     environment:
-      - NEO4J_AUTH=neo4j/morpheus4j # Replace 'test' with your desired password
+      - NEO4J_AUTH=neo4j/morpheus4j # Replace with your desired username and password
     volumes:
       - neo4j_data:/data
 
