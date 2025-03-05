@@ -411,7 +411,7 @@ def graphRAG_run(graph_context, user_query):
             messages=[
                 {"role": "system", "content": "Provide the answer for the following question:"},
                 {"role": "user", "content": prompt}
-            ]
+            ],
         )
         return response.choices[0].message
     
@@ -442,20 +442,27 @@ def clear_data(neo4j_driver, qdrant_client, collection_name):
 
 def initialize_clients():
     """Initialize Neo4j and Qdrant clients from environment variables"""
-    load_dotenv('.env.local')
+    load_dotenv('.env')
     
     # Get credentials from environment variables
-    qdrant_key = os.getenv("QDRANT_KEY")
-    qdrant_url = os.getenv("QDRANT_URL")
+    qdrant_host = os.getenv("QDRANT_HOST")
+    qdrant_port = os.getenv("QDRANT_PORT")
     neo4j_uri = os.getenv("NEO4J_URI")
     neo4j_username = os.getenv("NEO4J_USERNAME")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
     
+    # Debug: Print environment variables
+    print(f"NEO4J_URI: {neo4j_uri}")
+    print(f"NEO4J_USERNAME: {neo4j_username}")
+    print(f"NEO4J_PASSWORD: {'*****' if neo4j_password else 'Not set'}")
+    print(f"QDRANT_HOST: {qdrant_host}")
+    print(f"QDRANT_PORT: {qdrant_port}")
+    
     # Initialize clients
     neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
     qdrant_client = QdrantClient(
-        url=qdrant_url,
-        api_key=qdrant_key
+        host=qdrant_host,
+        port=int(qdrant_port) if qdrant_port else None
     )
     
     return neo4j_driver, qdrant_client 
