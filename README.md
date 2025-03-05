@@ -53,13 +53,24 @@ docker-compose up -d
 
 5. Copy the environment variables template and configure it:
 ```bash
-cp .env.sample .env
+cp .env.example .env
 ```
 
 6. Edit the `.env` file with your configuration settings:
    - Set `MODEL_PROVIDER` to either `openai` or `ollama`
-   - If using OpenAI, add your API key
-   - Configure any other settings as needed
+   - Configure your vector dimensions based on the model provider
+   - Set the appropriate embedding and LLM models
+   - Add your API keys or connection details
+   - Configure performance parameters as needed
+
+7. If using Ollama, pull the required models:
+```bash
+# Pull the embedding model
+ollama pull nomic-embed-text
+
+# Pull the LLM for inference
+ollama pull qwen2.5:3b
+```
 
 ## Usage
 
@@ -112,19 +123,27 @@ Enter your question: Who is Dave?
 
 ## Configuration Options
 
-The system can be configured through environment variables:
+The system can be configured through environment variables in the `.env` file:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| MODEL_PROVIDER | LLM provider (`openai` or `ollama`) | openai |
-| LLM_MODEL | Model to use for question answering | gpt-4o-mini (OpenAI) or qwen2.5:3b (Ollama) |
-| EMBEDDING_MODEL | Model to use for embeddings | text-embedding-3-small (OpenAI) or nomic-embed-text (Ollama) |
+| MODEL_PROVIDER | LLM provider (`openai` or `ollama`) | - |
+| NEO4J_URI | URI for Neo4j connection | bolt://localhost:7687 |
+| NEO4J_USERNAME | Neo4j username | neo4j |
+| NEO4J_PASSWORD | Neo4j password | - |
+| QDRANT_HOST | Qdrant host | localhost |
+| QDRANT_PORT | Qdrant port | 6333 |
+| COLLECTION_NAME | Qdrant collection name | - |
 | VECTOR_DIMENSION | Dimension of embedding vectors | 1536 (OpenAI) or 768 (Ollama) |
+| EMBEDDING_MODEL | Model for embeddings | text-embedding-3-small (OpenAI) or nomic-embed-text (Ollama) |
+| LLM_MODEL | Model for inference | gpt-4o-mini (OpenAI) or qwen2.5:3b (Ollama) |
+| OPENAI_API_KEY | OpenAI API key (if using OpenAI) | - |
+| OLLAMA_HOST | Ollama host (if using Ollama) | localhost |
+| OLLAMA_PORT | Ollama port (if using Ollama) | 11434 |
 | PARALLEL_PROCESSING | Enable parallel processing | true |
 | MAX_WORKERS | Number of parallel workers | 4 |
 | BATCH_SIZE | Batch size for database operations | 100 |
 | CHUNK_SIZE | Size of text chunks for processing | 5000 |
-| USE_STREAMING | Enable streaming responses | true |
 
 ## Extending the System
 

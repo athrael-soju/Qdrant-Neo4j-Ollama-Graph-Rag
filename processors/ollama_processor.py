@@ -16,7 +16,6 @@ OLLAMA_BASE_URL = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}"
 OLLAMA_EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 OLLAMA_LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b")
 VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "768"))
-JSON_MODE = os.getenv("JSON_MODE", "true").lower() == "true"
 
 # Export variables for processor_factory.py
 LLM_MODEL = OLLAMA_LLM_MODEL

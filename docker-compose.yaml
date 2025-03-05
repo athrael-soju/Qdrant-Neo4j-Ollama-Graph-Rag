@@ -27,20 +27,6 @@ services:
     volumes:
       - ollama_models:/root/.ollama
 
-  # Using the official unstructured-api container
-  # unstructured-api:
-  #   image: quay.io/unstructured-io/unstructured-api:latest
-  #   platform: linux/amd64  # Use x86 image with emulation on Apple Silicon
-  #   container_name: gr_unstructured
-  #   ports:
-  #     - '8000:8000'
-  #   environment:
-  #     - METRICS_ENABLED=false
-  #     - LOG_LEVEL=INFO
-  #   command: ["--port", "8000", "--host", "0.0.0.0"]
-  #   volumes:
-  #     - unstructured_cache:/tmp/unstructured_cache
-
 volumes:
   neo4j_data:
   qdrant_storage:
