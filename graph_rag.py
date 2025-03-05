@@ -1,72 +1,31 @@
 from neo4j import GraphDatabase
 from qdrant_client import QdrantClient, models
 from dotenv import load_dotenv
-from pydantic import BaseModel
-from openai import OpenAI
 from collections import defaultdict
-from functools import lru_cache
 from neo4j_graphrag.retrievers import QdrantNeo4jRetriever
 import uuid
 import os
 import concurrent.futures
 import time
+# Import the processor factory
+from processors.processor_factory import get_processor
 
-# Define data models
-class single(BaseModel):
-    node: str
-    target_node: str
-    relationship: str
+# Get the selected processor components
+processor = get_processor()
+llm_parser = processor["llm_parser"]
+embeddings = processor["embeddings"]
+embeddings_batch = processor["embeddings_batch"]
+graphrag_query = processor["graphrag_query"]
+GraphComponents = processor["GraphComponents"]
+single = processor["Single"]
+VECTOR_DIMENSION = processor["VECTOR_DIMENSION"]
+LLM_MODEL = processor["LLM_MODEL"]
+EMBEDDING_MODEL = processor["EMBEDDING_MODEL"]
 
-class GraphComponents(BaseModel):
-    graph: list[single]
-
-# Add cache for OpenAI responses to avoid redundant API calls
-@lru_cache(maxsize=128)
-def cached_openai_call(prompt, model="gpt-4o-mini"):
-    """Cached version of OpenAI API call to avoid redundant calls"""
-    client = OpenAI()
-    completion = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": 
-                   
-                """ You are a precise graph relationship extractor. Extract all 
-                    relationships from the text and format them as a JSON object 
-                    with this exact structure:
-                    {
-                        "graph": [
-                            {"node": "Person/Entity", 
-                             "target_node": "Related Entity", 
-                             "relationship": "Type of Relationship"},
-                            ...more relationships...
-                        ]
-                    }
-                    Include ALL relationships mentioned in the text, including 
-                    implicit ones. Be thorough and precise. """
-                    
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-    
-    return completion.choices[0].message.content
-
-def openai_llm_parser(prompt):
-    """Parse text into graph components using OpenAI"""
-    # Use the cached version
-    content = cached_openai_call(prompt)
-    return GraphComponents.model_validate_json(content)
-    
 def process_data_chunk(chunk_text):
     """Process a chunk of text to extract nodes and relationships."""
     prompt = f"Extract nodes and relationships from the following text:\n{chunk_text}"
-    parsed_response = openai_llm_parser(prompt).graph
+    parsed_response = llm_parser(prompt).graph
     
     chunk_nodes = {}
     chunk_relationships = []
@@ -180,7 +139,7 @@ def extract_graph_components(raw_data):
     """Extract graph components from text data"""
     prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
 
-    parsed_response = openai_llm_parser(prompt).graph  # Assuming this returns a list of dictionaries
+    parsed_response = llm_parser(prompt).graph  # Assuming this returns a list of dictionaries
 
     nodes = {}
     relationships = []
@@ -262,41 +221,6 @@ def create_collection(client, collection_name, vector_dimension):
         else:
             print(f"Error while checking collection: {e}")
 
-def openai_embeddings(text):
-    """Generate embeddings for a single text string"""
-    client = OpenAI()
-    response = client.embeddings.create(
-        input=text,
-        model="text-embedding-3-small"
-    )
-    
-    return response.data[0].embedding
-
-def openai_embeddings_batch(texts, batch_size=20):
-    """
-    Get embeddings for a list of texts in batches to reduce API calls.
-    """
-    client = OpenAI()
-    all_embeddings = []
-    
-    # Process in batches to avoid rate limits and improve performance
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i:i+batch_size]
-        try:
-            response = client.embeddings.create(
-                input=batch,
-                model="text-embedding-3-small"
-            )
-            batch_embeddings = [item.embedding for item in response.data]
-            all_embeddings.extend(batch_embeddings)
-            print(f"Processed batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
-        except Exception as e:
-            print(f"Error in batch {i//batch_size + 1}: {str(e)}")
-            # Add empty embeddings as placeholders for failed items
-            all_embeddings.extend([[0] * 1536] * len(batch))
-    
-    return all_embeddings
-
 def ingest_to_qdrant(qdrant_client, collection_name, raw_data, node_id_mapping):
     """
     Ingest data to Qdrant with optimized batching.
@@ -305,17 +229,17 @@ def ingest_to_qdrant(qdrant_client, collection_name, raw_data, node_id_mapping):
     paragraphs = [p for p in raw_data.split("\n") if p.strip()]
     
     print(f"Generating embeddings for {len(paragraphs)} paragraphs...")
-    embeddings = openai_embeddings_batch(paragraphs)
+    embeddings_result = embeddings_batch(paragraphs)
     
     # Prepare batch points
     points = []
     node_ids = list(node_id_mapping.values())
     
     # Use min to handle cases where we have more paragraphs than node IDs or vice versa
-    for i in range(min(len(embeddings), len(node_ids))):
+    for i in range(min(len(embeddings_result), len(node_ids))):
         points.append({
             "id": str(uuid.uuid4()),
-            "vector": embeddings[i],
+            "vector": embeddings_result[i],
             "payload": {"id": node_ids[i], "text": paragraphs[i]}
         })
     
@@ -339,7 +263,7 @@ def retriever_search(neo4j_driver, qdrant_client, collection_name, query):
         id_property_neo4j="id",
     )
 
-    results = retriever.search(query_vector=openai_embeddings(query), top_k=10)
+    results = retriever.search(query_vector=embeddings(query), top_k=10)
     
     return results
 
@@ -388,35 +312,20 @@ def format_graph_context(subgraph):
 
     return {"nodes": list(nodes), "edges": edges}
 
-def graphRAG_run(graph_context, user_query):
-    """Run RAG with the graph context"""
-    client = OpenAI()
-    nodes_str = ", ".join(graph_context["nodes"])
-    edges_str = "; ".join(graph_context["edges"])
-    prompt = f"""
-    You are an intelligent assistant with access to the following knowledge graph:
-
-    Nodes: {nodes_str}
-
-    Edges: {edges_str}
-
-    Using this graph, Answer the following question:
-
-    User Query: "{user_query}"
+def graphRAG_run(graph_context, user_query, stream=True):
     """
+    Run RAG with the graph context
     
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Provide the answer for the following question:"},
-                {"role": "user", "content": prompt}
-            ],
-        )
-        return response.choices[0].message
-    
-    except Exception as e:
-        return f"Error querying LLM: {str(e)}"
+    Args:
+        graph_context: The graph context with nodes and edges
+        user_query: The user's question
+        stream: Whether to stream the response (default True)
+        
+    Returns:
+        If stream=True: Iterator yielding chunks of the response
+        If stream=False: Complete response message
+    """
+    return graphrag_query(graph_context, user_query, stream=stream)
 
 def clear_data(neo4j_driver, qdrant_client, collection_name):
     """
@@ -432,7 +341,7 @@ def clear_data(neo4j_driver, qdrant_client, collection_name):
         print(f"Collection '{collection_name}' deleted successfully.")
         
         # Recreate the empty collection
-        vector_dimension = 1536  # Using the standard OpenAI embedding dimension
+        vector_dimension = VECTOR_DIMENSION  # Using dimension from environment variables
         create_collection(qdrant_client, collection_name, vector_dimension)
         
     except Exception as e:
@@ -450,6 +359,13 @@ def initialize_clients():
     neo4j_uri = os.getenv("NEO4J_URI")
     neo4j_username = os.getenv("NEO4J_USERNAME")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
+    collection_name = os.getenv("COLLECTION_NAME", "graphRAGstoreds")
+    
+    # Model and vector settings
+    print(f"Using model provider: {os.getenv('MODEL_PROVIDER', 'openai')}")
+    print(f"Using LLM model: {LLM_MODEL}")
+    print(f"Using embedding model: {EMBEDDING_MODEL}")
+    print(f"Vector dimension: {VECTOR_DIMENSION}")
     
     # Debug: Print environment variables
     print(f"NEO4J_URI: {neo4j_uri}")
@@ -457,6 +373,7 @@ def initialize_clients():
     print(f"NEO4J_PASSWORD: {'*****' if neo4j_password else 'Not set'}")
     print(f"QDRANT_HOST: {qdrant_host}")
     print(f"QDRANT_PORT: {qdrant_port}")
+    print(f"COLLECTION_NAME: {collection_name}")
     
     # Initialize clients
     neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
@@ -465,4 +382,4 @@ def initialize_clients():
         port=int(qdrant_port) if qdrant_port else None
     )
     
-    return neo4j_driver, qdrant_client 
+    return neo4j_driver, qdrant_client, collection_name 

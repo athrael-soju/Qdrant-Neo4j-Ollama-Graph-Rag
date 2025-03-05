@@ -1,4 +1,6 @@
 import time
+import os
+from dotenv import load_dotenv
 from graph_rag import (
     initialize_clients,
     create_collection,
@@ -10,7 +12,8 @@ from graph_rag import (
     fetch_related_graph,
     format_graph_context,
     graphRAG_run,
-    clear_data
+    clear_data,
+    VECTOR_DIMENSION
 )
 
 if __name__ == "__main__":
@@ -18,18 +21,20 @@ if __name__ == "__main__":
     print("Loading environment variables and initializing clients...")
     
     # Initialize clients
-    neo4j_driver, qdrant_client = initialize_clients()
+    neo4j_driver, qdrant_client, collection_name = initialize_clients()
     print("Clients initialized")
     
-    # Set default collection name
-    collection_name = "graphRAGstoreds"
-    vector_dimension = 1536
+    # Load optimization parameters from environment, with defaults
+    load_dotenv()
+    parallel_processing = os.getenv("PARALLEL_PROCESSING", "true").lower() == "true"
+    max_workers = int(os.getenv("MAX_WORKERS", "4")) 
+    batch_size = int(os.getenv("BATCH_SIZE", "100"))
+    chunk_size = int(os.getenv("CHUNK_SIZE", "5000"))
+    use_streaming = os.getenv("USE_STREAMING", "true").lower() == "true"
+    model_provider = os.getenv("MODEL_PROVIDER", "openai").lower()
     
-    # Set default optimization parameters
-    parallel_processing = True
-    max_workers = 4
-    batch_size = 100
-    chunk_size = 5000
+    # Vector dimension from environment
+    vector_dimension = VECTOR_DIMENSION
     
     # Ensure collection exists
     create_collection(qdrant_client, collection_name, vector_dimension)
@@ -41,8 +46,10 @@ if __name__ == "__main__":
         print("1. Ingest data")
         print("2. Clear all data")
         print("3. Ask a question")
-        print("4. Configure optimization settings")
+        print("4. Configure settings")
         print("5. Exit")
+        print("="*50)
+        print(f"Current LLM provider: {model_provider.upper()}")
         print("="*50)
         
         choice = input("Enter your choice (1-5): ")
@@ -120,12 +127,49 @@ if __name__ == "__main__":
             graph_context = format_graph_context(subgraph)
             
             print("Running GraphRAG...")
-            answer = graphRAG_run(graph_context, query)
+            start_answer_time = time.time()
+            
+            # Get the current model provider
+            model_provider = os.getenv("MODEL_PROVIDER", "openai").lower()
+            
+            # Use streaming response
+            stream_response = graphRAG_run(graph_context, query, stream=use_streaming)
+            
+            print("\nAnswer: ", end="", flush=True)
+            full_answer = ""
+            
+            try:
+                # For streaming responses
+                if use_streaming:
+                    if model_provider == "openai":
+                        # Handle OpenAI streaming format
+                        for chunk in stream_response:
+                            if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
+                                content = chunk.choices[0].delta.content
+                                print(content, end="", flush=True)
+                                full_answer += content
+                    else:  # Ollama or other providers
+                        # Handle simpler streaming format
+                        for content in stream_response:
+                            print(content, end="", flush=True)
+                            full_answer += content
+                else:
+                    # For non-streaming responses
+                    full_answer = stream_response
+                    print(full_answer)
+            except Exception as e:
+                # Handle any errors gracefully
+                error_msg = f"Error processing response: {str(e)}"
+                print(error_msg)
+                full_answer = error_msg
+            
+            print()  # Add a newline at the end
+            
             end_time = time.time()
             query_time = end_time - start_time
+            answer_time = end_time - start_answer_time
             
-            print("\nAnswer:", answer.content if hasattr(answer, 'content') else answer)
-            print(f"Query processing time: {query_time:.2f} seconds")
+            print(f"Query processing time: {query_time:.2f} seconds (Answer generation: {answer_time:.2f} seconds)")
             
         elif choice == "4":
             print("\nConfigure Optimization Settings")
@@ -135,9 +179,10 @@ if __name__ == "__main__":
             print(f"2. Number of workers: {max_workers}")
             print(f"3. Batch size: {batch_size}")
             print(f"4. Chunk size: {chunk_size}")
-            print(f"5. Return to main menu")
+            print(f"5. Response streaming: {use_streaming}")
+            print(f"6. Return to main menu")
             
-            setting_choice = input("\nSelect setting to change (1-5): ")
+            setting_choice = input("\nSelect setting to change (1-6): ")
             
             if setting_choice == "1":
                 parallel_choice = input("Enable parallel processing? (y/n): ")
@@ -178,10 +223,15 @@ if __name__ == "__main__":
                     print("Invalid input, must be a number")
                     
             elif setting_choice == "5":
+                streaming_choice = input("Enable response streaming? (y/n): ")
+                use_streaming = streaming_choice.lower() == 'y'
+                print(f"Response streaming {'enabled' if use_streaming else 'disabled'}")
+                
+            elif setting_choice == "6":
                 pass  # Return to main menu
                 
             else:
-                print("Invalid choice. Please enter a number between 1 and 5.")
+                print("Invalid choice. Please enter a number between 1 and 6.")
             
         elif choice == "5":
             print("Exiting GraphRAG Console. Goodbye!")

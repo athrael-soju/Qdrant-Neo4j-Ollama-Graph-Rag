@@ -19,13 +19,13 @@ services:
       - qdrant_storage:/qdrant/storage
 
   # Ollama for running open source models
-  # ollama:
-  #   image: ollama/ollama:latest
-  #   container_name: gr_ollama
-  #   ports:
-  #     - '11434:11434'
-  #   volumes:
-  #     - ollama_models:/root/.ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: gr_ollama
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_models:/root/.ollama
 
   # Using the official unstructured-api container
   # unstructured-api:
@@ -44,4 +44,5 @@ services:
 volumes:
   neo4j_data:
   qdrant_storage:
+  ollama_models:
   # unstructured_cache:
