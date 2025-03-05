@@ -129,6 +129,9 @@ if __name__ == "__main__":
             print("Running GraphRAG...")
             start_answer_time = time.time()
             
+            # Get the current model provider
+            model_provider = os.getenv("MODEL_PROVIDER", "openai").lower()
+            
             # Use streaming response
             stream_response = graphRAG_run(graph_context, query, stream=use_streaming)
             
@@ -137,19 +140,28 @@ if __name__ == "__main__":
             
             try:
                 # For streaming responses
-                for chunk in stream_response:
-                    if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
-                        content = chunk.choices[0].delta.content
-                        print(content, end="", flush=True)
-                        full_answer += content
-            except AttributeError:
-                # For non-streaming responses (like error messages)
-                if isinstance(stream_response, str):
+                if use_streaming:
+                    if model_provider == "openai":
+                        # Handle OpenAI streaming format
+                        for chunk in stream_response:
+                            if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
+                                content = chunk.choices[0].delta.content
+                                print(content, end="", flush=True)
+                                full_answer += content
+                    else:  # Ollama or other providers
+                        # Handle simpler streaming format
+                        for content in stream_response:
+                            print(content, end="", flush=True)
+                            full_answer += content
+                else:
+                    # For non-streaming responses
                     full_answer = stream_response
                     print(full_answer)
-                else:
-                    full_answer = stream_response.content if hasattr(stream_response, 'content') else str(stream_response)
-                    print(full_answer)
+            except Exception as e:
+                # Handle any errors gracefully
+                error_msg = f"Error processing response: {str(e)}"
+                print(error_msg)
+                full_answer = error_msg
             
             print()  # Add a newline at the end
             

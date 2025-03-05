@@ -181,11 +181,41 @@ def graphrag_query(graph_context, user_query, model=None, stream=True):
         }
 
         if stream:
-            response = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)            
-            return response
+            # For streaming, we need to set stream=True in the requests call
+            response = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, stream=True)
         else:
-            response = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)              
-            return response.message.content  
+            response = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
+            
+        response.raise_for_status()
+        
+        if stream:
+            # Simple generator for streaming responses
+            def response_generator():
+                for chunk in response.iter_lines():
+                    if chunk:
+                        try:
+                            json_chunk = json.loads(chunk.decode('utf-8'))
+                            if 'message' in json_chunk and 'content' in json_chunk['message']:
+                                content = json_chunk['message']['content']
+                                # Only yield content if it's not empty
+                                if content.strip():
+                                    yield content
+                        except json.JSONDecodeError:
+                            # If not valid JSON, just yield the raw text
+                            raw_text = chunk.decode('utf-8')
+                            if raw_text.strip():
+                                yield raw_text
+            
+            # Return the generator directly, don't consume it yet
+            return response_generator()
+        else:
+            # Parse the complete response
+            result = response.json()
+            if 'message' in result and 'content' in result['message']:
+                return result['message']['content']
+            else:
+                return f"Error: Unexpected API response format: {result}"
+                
     except Exception as e:
         error_msg = f"Error querying LLM: {str(e)}"
         if stream:
