@@ -7,21 +7,25 @@ import uuid
 import os
 import concurrent.futures
 import time
-# Import the OpenAI processor functions
-from processors.openai_processor import (
-    openai_llm_parser, 
-    openai_embeddings, 
-    openai_embeddings_batch, 
-    graphrag_query,
-    GraphComponents,
-    Single as single,
-    VECTOR_DIMENSION
-)
+# Import the processor factory
+from processors.processor_factory import get_processor
+
+# Get the selected processor components
+processor = get_processor()
+llm_parser = processor["llm_parser"]
+embeddings = processor["embeddings"]
+embeddings_batch = processor["embeddings_batch"]
+graphrag_query = processor["graphrag_query"]
+GraphComponents = processor["GraphComponents"]
+single = processor["Single"]
+VECTOR_DIMENSION = processor["VECTOR_DIMENSION"]
+LLM_MODEL = processor["LLM_MODEL"]
+EMBEDDING_MODEL = processor["EMBEDDING_MODEL"]
 
 def process_data_chunk(chunk_text):
     """Process a chunk of text to extract nodes and relationships."""
     prompt = f"Extract nodes and relationships from the following text:\n{chunk_text}"
-    parsed_response = openai_llm_parser(prompt).graph
+    parsed_response = llm_parser(prompt).graph
     
     chunk_nodes = {}
     chunk_relationships = []
@@ -135,7 +139,7 @@ def extract_graph_components(raw_data):
     """Extract graph components from text data"""
     prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
 
-    parsed_response = openai_llm_parser(prompt).graph  # Assuming this returns a list of dictionaries
+    parsed_response = llm_parser(prompt).graph  # Assuming this returns a list of dictionaries
 
     nodes = {}
     relationships = []
@@ -225,17 +229,17 @@ def ingest_to_qdrant(qdrant_client, collection_name, raw_data, node_id_mapping):
     paragraphs = [p for p in raw_data.split("\n") if p.strip()]
     
     print(f"Generating embeddings for {len(paragraphs)} paragraphs...")
-    embeddings = openai_embeddings_batch(paragraphs)
+    embeddings_result = embeddings_batch(paragraphs)
     
     # Prepare batch points
     points = []
     node_ids = list(node_id_mapping.values())
     
     # Use min to handle cases where we have more paragraphs than node IDs or vice versa
-    for i in range(min(len(embeddings), len(node_ids))):
+    for i in range(min(len(embeddings_result), len(node_ids))):
         points.append({
             "id": str(uuid.uuid4()),
-            "vector": embeddings[i],
+            "vector": embeddings_result[i],
             "payload": {"id": node_ids[i], "text": paragraphs[i]}
         })
     
@@ -259,7 +263,7 @@ def retriever_search(neo4j_driver, qdrant_client, collection_name, query):
         id_property_neo4j="id",
     )
 
-    results = retriever.search(query_vector=openai_embeddings(query), top_k=10)
+    results = retriever.search(query_vector=embeddings(query), top_k=10)
     
     return results
 
@@ -336,8 +340,13 @@ def clear_data(neo4j_driver, qdrant_client, collection_name):
         qdrant_client.delete_collection(collection_name)
         print(f"Collection '{collection_name}' deleted successfully.")
         
-        # Recreate the empty collection
-        vector_dimension = VECTOR_DIMENSION  # Using dimension from environment variables
+        # Determine vector dimension based on provider
+        provider = os.getenv("LLM_PROVIDER", "openai").lower()
+        if provider == "ollama":
+            vector_dimension = int(os.getenv("OLLAMA_VECTOR_DIMENSION", "768"))
+        else:  # Default to OpenAI
+            vector_dimension = int(os.getenv("OPENAI_VECTOR_DIMENSION", "1536"))
+            
         create_collection(qdrant_client, collection_name, vector_dimension)
         
     except Exception as e:
@@ -358,10 +367,16 @@ def initialize_clients():
     collection_name = os.getenv("COLLECTION_NAME", "graphRAGstoreds")
     
     # Model and vector settings
-    llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini")
-    embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-    vector_dimension = os.getenv("VECTOR_DIMENSION", "1536")
-    llm_provider = os.getenv("LLM_PROVIDER", "openai")
+    provider = os.getenv('LLM_PROVIDER', 'openai')
+    print(f"Using LLM provider: {provider}")
+    print(f"Using LLM model: {LLM_MODEL}")
+    print(f"Using embedding model: {EMBEDDING_MODEL}")
+    
+    # Show the correct vector dimension based on provider
+    if provider.lower() == "ollama":
+        print(f"Vector dimension (Ollama): {os.getenv('OLLAMA_VECTOR_DIMENSION', '768')}")
+    else:
+        print(f"Vector dimension (OpenAI): {os.getenv('OPENAI_VECTOR_DIMENSION', '1536')}")
     
     # Debug: Print environment variables
     print(f"NEO4J_URI: {neo4j_uri}")
@@ -370,10 +385,6 @@ def initialize_clients():
     print(f"QDRANT_HOST: {qdrant_host}")
     print(f"QDRANT_PORT: {qdrant_port}")
     print(f"COLLECTION_NAME: {collection_name}")
-    print(f"LLM Provider: {llm_provider}")
-    print(f"LLM Model: {llm_model}")
-    print(f"Embedding Model: {embedding_model}")
-    print(f"Vector Dimension: {vector_dimension}")
     
     # Initialize clients
     neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))

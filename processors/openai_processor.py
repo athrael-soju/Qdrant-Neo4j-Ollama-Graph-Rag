@@ -11,7 +11,7 @@ load_dotenv()
 # Get configuration from environment variables
 OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 OPENAI_LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini") 
-VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "1536"))
+VECTOR_DIMENSION = int(os.getenv("OPENAI_VECTOR_DIMENSION", "1536"))
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 
 # Define data models

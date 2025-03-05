@@ -1,13 +1,13 @@
-# GraphRAG with Neo4j, Qdrant, and OpenAI
+# GraphRAG with Neo4j, Qdrant, and LLMs
 
 ## Overview
 
-This project demonstrates how to build a Graph Retrieval-Augmented Generation (RAG) pipeline that extracts graph relationships from raw text using OpenAI’s GPT models, stores and queries these relationships in a Neo4j graph database, and enhances the process with Qdrant’s vector search capabilities. By integrating these technologies, users can extract structured insights from unstructured text and perform complex graph queries to generate context-aware natural language responses.
+This project demonstrates how to build a Graph Retrieval-Augmented Generation (RAG) pipeline that extracts graph relationships from raw text using language models, stores and queries these relationships in a Neo4j graph database, and enhances the process with Qdrant's vector search capabilities. By integrating these technologies, users can extract structured insights from unstructured text and perform complex graph queries to generate context-aware natural language responses.
 
 The system is built on three main components:
 
-- **Vector Search & RAG**: Uses Qdrant to index text embeddings for semantic search and combines these results with graph data to generate informed responses via OpenAI’s GPT.
-- **Graph Extraction**: Leverages OpenAI’s GPT to parse text and extract entities (nodes) and relationships (edges) in a structured JSON format.
+- **Vector Search & RAG**: Uses Qdrant to index text embeddings for semantic search and combines these results with graph data to generate informed responses via LLMs.
+- **Graph Extraction**: Leverages language models like OpenAI's GPT or Ollama's Qwen to parse text and extract entities (nodes) and relationships (edges) in a structured JSON format.
 - **Graph Storage & Querying**: Utilizes Neo4j to ingest, store, and query the extracted graph components, enabling advanced relationship and subgraph queries.
 
 ---
@@ -16,9 +16,9 @@ The system is built on three main components:
 
 Before running any code, ensure you have the necessary API keys and database credentials. You will need:
 
-- **Qdrant**: API key and URL for your Qdrant instance.
+- **Qdrant**: API key and URL for your Qdrant instance (or local setup using Docker).
 - **Neo4j**: Connection URI, username, and password.
-- **OpenAI**: API key for accessing GPT models and embeddings.
+- **Language Model**: Either an OpenAI API key or a local Ollama instance running.
 
 ### Prerequisites
 
@@ -44,20 +44,46 @@ Before running any code, ensure you have the necessary API keys and database cre
 
 4. **Configure Environment Variables:**
 
-   Create a file named `.env` in the root of the repository and add your credentials. Refer to the .env.sample for guidance.:
+   Create a file named `.env` in the root of the repository and add your credentials. Refer to the .env.sample for guidance:
 
    ```env
-   # Qdrant configuration
-   QDRANT_KEY=your_qdrant_api_key
-   QDRANT_URL=your_qdrant_instance_url
-
-   # Neo4j configuration
+   # Connection Settings
+   QDRANT_HOST=localhost
+   QDRANT_PORT=6333
    NEO4J_URI=bolt://localhost:7687
-   NEO4J_USERNAME=your_neo4j_username
-   NEO4J_PASSWORD=your_neo4j_password
+   NEO4J_USERNAME=neo4j
+   NEO4J_PASSWORD=password
 
-   # OpenAI configuration
+   # OpenAI Settings
    OPENAI_API_KEY=your_openai_api_key
+   LLM_PROVIDER=openai  # or 'ollama' for local models
+   LLM_MODEL=gpt-4o-mini
+   OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
+   # Ollama Settings (if using local models)
+   OLLAMA_HOST=localhost
+   OLLAMA_PORT=11434
+   OLLAMA_LLM_MODEL=qwen2.5:3b
+   OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+
+   # Collection Settings
+   COLLECTION_NAME=graphRAGstoreds
+   VECTOR_DIMENSION=1536
+
+   # Performance Settings
+   PARALLEL_PROCESSING=true
+   MAX_WORKERS=4
+   BATCH_SIZE=100
+   CHUNK_SIZE=5000
+   USE_STREAMING=true
+   ```
+
+5. **Docker Setup (Optional):**
+
+   For local development, you can use the provided Docker Compose file to spin up Neo4j, Qdrant, and Ollama:
+
+   ```bash
+   docker-compose up -d
    ```
 
 ---
@@ -67,29 +93,35 @@ Before running any code, ensure you have the necessary API keys and database cre
 Once your environment is set up, you can run the pipeline by executing the main script:
 
 ```bash
-python graphrag.py
+python main.py
 ```
 
-The script performs the following steps:
+The interactive console allows you to:
 
-1. **Environment Initialization:**  
-   Loads API keys and database credentials from `.env`.
+1. **Ingest Data**: Extract graph components from text and store them in Neo4j and Qdrant.
+2. **Clear Data**: Remove all data from Neo4j and Qdrant.
+3. **Ask Questions**: Query the knowledge graph using natural language.
+4. **Configure Settings**: Adjust performance parameters.
+5. **Switch LLM Provider**: Toggle between OpenAI and Ollama for language model processing.
 
-2. **Graph Extraction:**  
-   Uses OpenAI’s GPT model to extract graph components (nodes and relationships) from raw text input.
+---
 
-3. **Data Ingestion:**
+## LLM Processors
 
-   - **Neo4j Ingestion:** Inserts the extracted nodes and relationships into a Neo4j graph database.
-   - **Qdrant Ingestion:** Computes text embeddings for segments of the raw data and uploads them to a Qdrant collection.
+The system supports two LLM processors:
 
-4. **Retrieval & Graph Querying:**  
-   Performs a vector search in Qdrant to identify relevant sections of the text, then queries Neo4j to fetch related graph context.
+### OpenAI Processor
+- Uses OpenAI's models (default: gpt-4o-mini) for graph extraction and RAG
+- Requires an OpenAI API key
+- Generally provides higher quality extraction but incurs API costs
 
-5. **Retrieval-Augmented Generation (RAG):**  
-   Combines the graph context with the vector search results to generate a detailed answer to a user query via OpenAI’s GPT.
+### Ollama Processor
+- Uses local models via Ollama (default: qwen2.5:3b)
+- Runs entirely on your local machine - no API costs
+- Requires the Ollama server running (included in Docker setup)
+- Suitable for development and testing
 
-Console logs will provide detailed information on each step, including extraction progress, ingestion status, retrieval results, and the final generated response.
+You can switch between processors at runtime through the console interface.
 
 ---
 
@@ -98,7 +130,7 @@ Console logs will provide detailed information on each step, including extractio
 ### Graph Extraction
 
 - **Functionality:**  
-  Uses a custom prompt with OpenAI’s GPT model to extract entities and their relationships from unstructured text.
+  Uses a custom prompt with OpenAI's GPT model to extract entities and their relationships from unstructured text.
 - **Output:**  
   A structured JSON object containing:
   - **`graph`**: An array of relationship objects, each with:
@@ -125,7 +157,7 @@ Console logs will provide detailed information on each step, including extractio
 - **Functionality:**  
   Integrates graph context (from Neo4j) with vector search results (from Qdrant) to enrich the prompt for natural language generation.
 - **Usage:**  
-  Uses OpenAI’s GPT to generate detailed, context-aware answers to user queries.
+  Uses OpenAI's GPT to generate detailed, context-aware answers to user queries.
 
 ---
 
