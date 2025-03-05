@@ -1,4 +1,5 @@
 import os
+from typing import Dict, Any
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -8,15 +9,24 @@ load_dotenv()
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai").lower()
 VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "1536"))
 
-# Main processor selection function
-def get_processor():
+def get_processor() -> Dict[str, Any]:
     """
     Returns the appropriate processor module based on environment settings.
     
     The selection is based on the MODEL_PROVIDER environment variable.
+    Supported providers are 'openai' and 'ollama'.
     
     Returns:
-        module: The selected processor module with all necessary functions.
+        Dict[str, Any]: Dictionary containing processor components:
+            - llm_parser: Function to parse text into graph components
+            - embeddings: Function to generate embeddings for a single text
+            - embeddings_batch: Function to generate embeddings for multiple texts
+            - graphrag_query: Function to query the graph with RAG
+            - GraphComponents: Model class for graph components
+            - Single: Model class for single relationship
+            - VECTOR_DIMENSION: Dimension size for embeddings
+            - LLM_MODEL: Model name for LLM
+            - EMBEDDING_MODEL: Model name for embeddings
     """
     
     if MODEL_PROVIDER == "ollama":

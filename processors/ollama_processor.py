@@ -24,16 +24,31 @@ EMBEDDING_MODEL = OLLAMA_EMBEDDING_MODEL
 
 # Define data models (same as in OpenAI processor)
 class Single(BaseModel):
+    """
+    Represents a single relationship between two nodes in a knowledge graph.
+    """
     node: str
     target_node: str
     relationship: str
 
 class GraphComponents(BaseModel):
+    """
+    Represents a collection of relationships in a knowledge graph.
+    """
     graph: list[Single]
 
 @lru_cache(maxsize=128)
-def cached_ollama_call(prompt, model=None):
-    """Cached version of Ollama API call to avoid redundant calls"""
+def cached_ollama_call(prompt: str, model: Optional[str] = None) -> str:
+    """
+    Cached version of Ollama API call to avoid redundant calls.
+    
+    Args:
+        prompt: The text prompt to send to the model
+        model: The model name to use, defaults to OLLAMA_LLM_MODEL if None
+        
+    Returns:
+        The model's response as a string
+    """
     if model is None:
         model = OLLAMA_LLM_MODEL
 
@@ -80,12 +95,23 @@ def cached_ollama_call(prompt, model=None):
         else:
             print(f"Warning: Unexpected API response format: {result}")
             return """{"graph": []}"""
+    except requests.exceptions.ConnectionError:
+        print(f"Error: Could not connect to Ollama API at {OLLAMA_BASE_URL}")
+        return """{"graph": []}"""
     except Exception as e:
         print(f"Error in Ollama API call: {str(e)}")
         return """{"graph": []}"""
 
-def ollama_llm_parser(prompt):
-    """Parse text into graph components using Ollama"""
+def ollama_llm_parser(prompt: str) -> GraphComponents:
+    """
+    Parse text into graph components using Ollama.
+    
+    Args:
+        prompt: The text to extract relationships from
+        
+    Returns:
+        GraphComponents object containing the extracted relationships
+    """
     # Use the cached version
     content = cached_ollama_call(prompt)
 
@@ -96,8 +122,16 @@ def ollama_llm_parser(prompt):
         print(f"Error parsing JSON: {str(e)}")
         return GraphComponents(graph=[])
 
-def ollama_embeddings(text):
-    """Generate embeddings for a single text string"""
+def ollama_embeddings(text: str) -> List[float]:
+    """
+    Generate embeddings for a single text string using Ollama.
+    
+    Args:
+        text: The text to generate embeddings for
+        
+    Returns:
+        List of floats representing the embedding vector
+    """
     try:
         payload = {
             "model": OLLAMA_EMBEDDING_MODEL,
@@ -111,9 +145,16 @@ def ollama_embeddings(text):
         print(f"Error generating embedding: {str(e)}")
         return [0] * VECTOR_DIMENSION
 
-def ollama_embeddings_batch(texts, batch_size=20):
+def ollama_embeddings_batch(texts: List[str], batch_size: int = 20) -> List[List[float]]:
     """
     Get embeddings for a list of texts in batches to reduce API calls.
+    
+    Args:
+        texts: List of text strings to generate embeddings for
+        batch_size: Number of texts to process in each batch
+        
+    Returns:
+        List of embedding vectors (each as a list of floats)
     """
     all_embeddings = []
     
@@ -136,7 +177,8 @@ def ollama_embeddings_batch(texts, batch_size=20):
     
     return all_embeddings
 
-def graphrag_query(graph_context, user_query, model=None, stream=True):
+def graphrag_query(graph_context: Dict[str, List[str]], user_query: str, 
+                  model: Optional[str] = None, stream: bool = True) -> Union[str, Iterator[str]]:
     """
     Run RAG with the graph context using Ollama.
     
@@ -173,7 +215,7 @@ def graphrag_query(graph_context, user_query, model=None, stream=True):
         # Create the appropriate payload based on streaming or not
         payload = {
             "model": model,
-            "messages":[
+            "messages": [
                 {"role": "system", "content": "Provide the answer for the following question:"},
                 {"role": "user", "content": prompt}
             ],
