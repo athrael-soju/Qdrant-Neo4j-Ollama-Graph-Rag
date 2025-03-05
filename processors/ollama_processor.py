@@ -11,15 +11,15 @@ import time
 load_dotenv()
 
 # Get configuration from environment variables
-OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
-OLLAMA_LLM_MODEL = os.getenv("OLLAMA_LLM_MODEL", "qwen2.5:3b")
-VECTOR_DIMENSION = int(os.getenv("OLLAMA_VECTOR_DIMENSION", "768"))
+OLLAMA_EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+OLLAMA_LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b")
+VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "768"))
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "localhost")
 OLLAMA_PORT = int(os.getenv("OLLAMA_PORT", "11434"))
-OLLAMA_URL_CHAT = os.getenv("OLLAMA_URL_CHAT", f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/chat")
-OLLAMA_URL_EMBEDDINGS = os.getenv("OLLAMA_URL", f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/embeddings")
+OLLAMA_URL_CHAT = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/chat"
+OLLAMA_URL_EMBEDDINGS = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/embeddings"
 OLLAMA_URL_GENERATE = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/generate"
-OLLAMA_JSON_MODE = os.getenv("OLLAMA_JSON_MODE", "true").lower() == "true"
+OLLAMA_JSON_MODE = os.getenv("JSON_MODE", "true").lower() == "true"
 
 # Define RAG prompt template
 RAG_PROMPT_TEMPLATE = """You are a helpful assistant that provides accurate information based on the context provided.

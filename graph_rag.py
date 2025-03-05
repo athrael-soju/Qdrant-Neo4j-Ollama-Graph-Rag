@@ -340,13 +340,8 @@ def clear_data(neo4j_driver, qdrant_client, collection_name):
         qdrant_client.delete_collection(collection_name)
         print(f"Collection '{collection_name}' deleted successfully.")
         
-        # Determine vector dimension based on provider
-        provider = os.getenv("LLM_PROVIDER", "openai").lower()
-        if provider == "ollama":
-            vector_dimension = int(os.getenv("OLLAMA_VECTOR_DIMENSION", "768"))
-        else:  # Default to OpenAI
-            vector_dimension = int(os.getenv("OPENAI_VECTOR_DIMENSION", "1536"))
-            
+        # Recreate the empty collection
+        vector_dimension = VECTOR_DIMENSION  # Using dimension from environment variables
         create_collection(qdrant_client, collection_name, vector_dimension)
         
     except Exception as e:
@@ -367,16 +362,10 @@ def initialize_clients():
     collection_name = os.getenv("COLLECTION_NAME", "graphRAGstoreds")
     
     # Model and vector settings
-    provider = os.getenv('LLM_PROVIDER', 'openai')
-    print(f"Using LLM provider: {provider}")
+    print(f"Using model provider: {os.getenv('MODEL_PROVIDER', 'openai')}")
     print(f"Using LLM model: {LLM_MODEL}")
     print(f"Using embedding model: {EMBEDDING_MODEL}")
-    
-    # Show the correct vector dimension based on provider
-    if provider.lower() == "ollama":
-        print(f"Vector dimension (Ollama): {os.getenv('OLLAMA_VECTOR_DIMENSION', '768')}")
-    else:
-        print(f"Vector dimension (OpenAI): {os.getenv('OPENAI_VECTOR_DIMENSION', '1536')}")
+    print(f"Vector dimension: {VECTOR_DIMENSION}")
     
     # Debug: Print environment variables
     print(f"NEO4J_URI: {neo4j_uri}")

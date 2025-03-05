@@ -5,22 +5,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get processor type from environment
-PROCESSOR_TYPE = os.getenv("PROCESSOR_TYPE", "openai").lower()
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai").lower()
+VECTOR_DIMENSION = int(os.getenv("VECTOR_DIMENSION", "1536"))
 
 # Main processor selection function
 def get_processor():
     """
     Returns the appropriate processor module based on environment settings.
     
-    The selection is based on the PROCESSOR_TYPE or LLM_PROVIDER environment variable.
+    The selection is based on the MODEL_PROVIDER environment variable.
     
     Returns:
         module: The selected processor module with all necessary functions.
     """
-    processor_type = PROCESSOR_TYPE or LLM_PROVIDER
     
-    if processor_type == "ollama":
+    if MODEL_PROVIDER == "ollama":
         from processors.ollama_processor import (
             ollama_llm_parser as llm_parser,
             ollama_embeddings as embeddings,

@@ -1,7 +1,5 @@
 import time
 import os
-import sys
-import subprocess
 from dotenv import load_dotenv
 from graph_rag import (
     initialize_clients,
@@ -14,35 +12,9 @@ from graph_rag import (
     fetch_related_graph,
     format_graph_context,
     graphRAG_run,
-    clear_data
+    clear_data,
+    VECTOR_DIMENSION
 )
-
-def update_env_file(key, value):
-    """Update a specific key in the .env file"""
-    with open('.env', 'r') as file:
-        lines = file.readlines()
-    
-    with open('.env', 'w') as file:
-        key_updated = False
-        for line in lines:
-            if line.strip() and not line.startswith('#'):
-                env_key, env_value = line.strip().split('=', 1)
-                if env_key == key:
-                    file.write(f"{key}={value}\n")
-                    key_updated = True
-                else:
-                    file.write(line)
-            else:
-                file.write(line)
-        
-        if not key_updated:
-            file.write(f"{key}={value}\n")
-
-def restart_application():
-    """Restart the application to apply the new processor settings"""
-    print("Restarting application to apply new settings...")
-    python = sys.executable
-    os.execl(python, python, *sys.argv)
 
 if __name__ == "__main__":
     print("GraphRAG Interactive Console")
@@ -59,14 +31,10 @@ if __name__ == "__main__":
     batch_size = int(os.getenv("BATCH_SIZE", "100"))
     chunk_size = int(os.getenv("CHUNK_SIZE", "5000"))
     use_streaming = os.getenv("USE_STREAMING", "true").lower() == "true"
-    processor_type = os.getenv("PROCESSOR_TYPE", "openai").lower()
+    model_provider = os.getenv("MODEL_PROVIDER", "openai").lower()
     
-    # Get vector dimension based on the provider
-    provider = os.getenv("LLM_PROVIDER", "openai").lower()
-    if provider == "ollama":
-        vector_dimension = int(os.getenv("OLLAMA_VECTOR_DIMENSION", "768"))
-    else:  # Default to OpenAI
-        vector_dimension = int(os.getenv("OPENAI_VECTOR_DIMENSION", "1536"))
+    # Vector dimension from environment
+    vector_dimension = VECTOR_DIMENSION
     
     # Ensure collection exists
     create_collection(qdrant_client, collection_name, vector_dimension)
@@ -79,13 +47,12 @@ if __name__ == "__main__":
         print("2. Clear all data")
         print("3. Ask a question")
         print("4. Configure settings")
-        print("5. Switch LLM provider")
-        print("6. Exit")
+        print("5. Exit")
         print("="*50)
-        print(f"Current LLM provider: {processor_type.upper()}")
+        print(f"Current LLM provider: {model_provider.upper()}")
         print("="*50)
         
-        choice = input("Enter your choice (1-6): ")
+        choice = input("Enter your choice (1-5): ")
         
         if choice == "1":
             print("\nIngesting Data")
@@ -255,44 +222,9 @@ if __name__ == "__main__":
                 print("Invalid choice. Please enter a number between 1 and 6.")
             
         elif choice == "5":
-            print("\nSwitch LLM Provider")
-            print("-" * 30)
-            print(f"Current provider: {processor_type.upper()}")
-            print("\nAvailable providers:")
-            print("1. OpenAI (gpt-4o-mini)")
-            print("2. Ollama (qwen2.5:3b)")
-            print("3. Return to main menu")
-            
-            provider_choice = input("\nSelect new provider (1-3): ")
-            
-            if provider_choice == "1":
-                if processor_type != "openai":
-                    update_env_file("PROCESSOR_TYPE", "openai")
-                    update_env_file("LLM_PROVIDER", "openai")
-                    print("Provider changed to OpenAI. Restarting application...")
-                    restart_application()
-                else:
-                    print("Already using OpenAI provider.")
-                    
-            elif provider_choice == "2":
-                if processor_type != "ollama":
-                    update_env_file("PROCESSOR_TYPE", "ollama")
-                    update_env_file("LLM_PROVIDER", "ollama")
-                    print("Provider changed to Ollama. Restarting application...")
-                    restart_application()
-                else:
-                    print("Already using Ollama provider.")
-                    
-            elif provider_choice == "3":
-                pass  # Return to main menu
-                
-            else:
-                print("Invalid choice. Please enter a number between 1 and 3.")
-            
-        elif choice == "6":
             print("Exiting GraphRAG Console. Goodbye!")
             neo4j_driver.close()
             break
             
         else:
-            print("Invalid choice. Please enter a number between 1 and 6.")
+            print("Invalid choice. Please enter a number between 1 and 5.")
