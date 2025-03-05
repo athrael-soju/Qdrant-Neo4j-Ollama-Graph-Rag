@@ -1,160 +1,163 @@
-# GraphRAG with Neo4j, Qdrant, and OpenAI
+# GraphRAG v2
 
-## Overview
+A simple Graph RAG implementation with modular processor support for OpenAI and Ollama LLMs.
 
-This project demonstrates how to build a Graph Retrieval-Augmented Generation (RAG) pipeline that extracts graph relationships from raw text using OpenAI’s GPT models, stores and queries these relationships in a Neo4j graph database, and enhances the process with Qdrant’s vector search capabilities. By integrating these technologies, users can extract structured insights from unstructured text and perform complex graph queries to generate context-aware natural language responses.
+## Features
 
-The system is built on three main components:
-
-- **Vector Search & RAG**: Uses Qdrant to index text embeddings for semantic search and combines these results with graph data to generate informed responses via OpenAI’s GPT.
-- **Graph Extraction**: Leverages OpenAI’s GPT to parse text and extract entities (nodes) and relationships (edges) in a structured JSON format.
-- **Graph Storage & Querying**: Utilizes Neo4j to ingest, store, and query the extracted graph components, enabling advanced relationship and subgraph queries.
-
----
+- Extract graph components (nodes and relationships) from text
+- Modular processor architecture:
+  - OpenAI processor for high-quality extraction
+  - Ollama processor for local, private extraction
+- Interactive console interface
+- Full RAG implementation with Neo4j and Qdrant
+- Configurable via environment variables or command-line arguments
+- Parallel processing for large documents
 
 ## Setup
 
-Before running any code, ensure you have the necessary API keys and database credentials. You will need:
-
-- **Qdrant**: API key and URL for your Qdrant instance.
-- **Neo4j**: Connection URI, username, and password.
-- **OpenAI**: API key for accessing GPT models and embeddings.
-
-### Prerequisites
-
-1. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/yourusername/graphrag.git
-   cd graphrag
-   ```
-
-2. **Create and Activate a Virtual Environment:**
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install Dependencies:**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure Environment Variables:**
-
-   Create a file named `.env` in the root of the repository and add your credentials. Refer to the .env.sample for guidance.:
-
-   ```env
-   # Qdrant configuration
-   QDRANT_KEY=your_qdrant_api_key
-   QDRANT_URL=your_qdrant_instance_url
-
-   # Neo4j configuration
-   NEO4J_URI=bolt://localhost:7687
-   NEO4J_USERNAME=your_neo4j_username
-   NEO4J_PASSWORD=your_neo4j_password
-
-   # OpenAI configuration
-   OPENAI_API_KEY=your_openai_api_key
-   ```
-
----
-
-## Usage
-
-Once your environment is set up, you can run the pipeline by executing the main script:
-
+1. Clone the repository:
 ```bash
-python graphrag.py
+git clone https://github.com/yourusername/graph-rag-v2.git
+cd graph-rag-v2
 ```
 
-The script performs the following steps:
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-1. **Environment Initialization:**  
-   Loads API keys and database credentials from `.env`.
+3. Set up environment variables (create a `.env` file):
+```
+# General settings
+PROCESSOR_TYPE=ollama  # or "openai"
+PROCESSOR_MODEL=qwen2.5:3b  # or any other model
 
-2. **Graph Extraction:**  
-   Uses OpenAI’s GPT model to extract graph components (nodes and relationships) from raw text input.
+# OpenAI settings (required if using OpenAI processor)
+OPENAI_API_KEY=your_openai_api_key
 
-3. **Data Ingestion:**
+# Ollama settings (required if using Ollama processor)
+OLLAMA_HOST=localhost
+OLLAMA_PORT=11434
 
-   - **Neo4j Ingestion:** Inserts the extracted nodes and relationships into a Neo4j graph database.
-   - **Qdrant Ingestion:** Computes text embeddings for segments of the raw data and uploads them to a Qdrant collection.
+# Neo4j settings (required for full GraphRAG)
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
 
-4. **Retrieval & Graph Querying:**  
-   Performs a vector search in Qdrant to identify relevant sections of the text, then queries Neo4j to fetch related graph context.
+# Qdrant settings (required for full GraphRAG)
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+```
 
-5. **Retrieval-Augmented Generation (RAG):**  
-   Combines the graph context with the vector search results to generate a detailed answer to a user query via OpenAI’s GPT.
+4. Start the Ollama service (if using Ollama):
+```bash
+ollama run qwen2.5:3b
+```
 
-Console logs will provide detailed information on each step, including extraction progress, ingestion status, retrieval results, and the final generated response.
+## Interactive Console
 
----
+Run the interactive console to work with GraphRAG:
 
-## Components
+```bash
+python main.py
+```
 
-### Graph Extraction
+The console provides the following options:
 
-- **Functionality:**  
-  Uses a custom prompt with OpenAI’s GPT model to extract entities and their relationships from unstructured text.
-- **Output:**  
-  A structured JSON object containing:
-  - **`graph`**: An array of relationship objects, each with:
-    - `node`: The source entity.
-    - `target_node`: The related entity.
-    - `relationship`: The type of relationship.
+1. **Ingest data**: Process a text file and ingest the extracted graph components into Neo4j and Qdrant
+2. **Clear all data**: Delete all data from Neo4j and Qdrant
+3. **Ask a question**: Query the graph with natural language
+4. **Configure optimization settings**: Adjust parameters like parallelization, chunk size, etc.
+5. **Configure processor settings**: Choose between OpenAI and Ollama processors and set their parameters
+6. **Exit**: Close the application
 
-### Neo4j Integration
+### Processor Configuration
 
-- **Functionality:**  
-  Ingests the extracted nodes and relationships into a Neo4j database, enabling robust graph queries.
-- **Usage:**  
-  Creates nodes labeled `Entity` and relationships between them based on the extracted data.
+In the interactive console, you can switch between processors:
 
-### Qdrant Vector Search
+1. **OpenAI processor**: Uses OpenAI models for high-quality extraction (requires API key)
+2. **Ollama processor**: Uses Ollama for local extraction (requires Ollama service)
 
-- **Functionality:**  
-  Computes text embeddings for segments of the raw text using OpenAI and stores these vectors in Qdrant.
-- **Usage:**  
-  Facilitates semantic search by matching query embeddings with stored vectors.
-
-### Retrieval-Augmented Generation (RAG)
-
-- **Functionality:**  
-  Integrates graph context (from Neo4j) with vector search results (from Qdrant) to enrich the prompt for natural language generation.
-- **Usage:**  
-  Uses OpenAI’s GPT to generate detailed, context-aware answers to user queries.
-
----
+You can configure the model and other settings for each processor.
 
 ## Project Structure
 
+- `graph_rag.py`: Core functionality for graph extraction and RAG operations
+- `main.py`: Interactive console for working with the GraphRAG system
+- `processors/`: Package containing processor implementations
+  - `base_processor.py`: Abstract base class for processors
+  - `openai_processor.py`: Processor using OpenAI APIs
+  - `ollama_processor.py`: Processor using local Ollama models
+  - `processor_factory.py`: Factory for creating processor instances
+
+## Using the GraphRAG System Programmatically
+
+You can also use GraphRAG programmatically:
+
+```python
+from graph_rag import extract_graph_components, ingest_to_neo4j
+
+# Extract graph components from text
+nodes, relationships = extract_graph_components(text)
+
+# Ingest into Neo4j
+with GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password)) as driver:
+    ingest_to_neo4j(driver, nodes, relationships)
 ```
-.
-├── .env.sample           # Environment variables configuration (change this to .env)
-├── requirements.txt     # Python dependencies
-├── graphrag.py       # Main Python script containing the pipeline code
-└── README.md            # Project documentation
+
+## Configuration
+
+### Processor Configuration
+
+You can configure processors in the following ways:
+
+1. Environment variables (in `.env` file):
+```
+PROCESSOR_TYPE=ollama
+PROCESSOR_MODEL=qwen2.5:3b
+OLLAMA_HOST=localhost
+OLLAMA_PORT=11434
 ```
 
-- **`graphrag.py`**:  
-  Contains the complete pipeline implementation, including graph extraction, ingestion into Neo4j, vector indexing in Qdrant, and the retrieval-augmented generation process.
+2. Programmatically:
+```python
+from graph_rag import extract_graph_components
 
-- **`requirements.txt`**:  
-  Lists all necessary Python packages (e.g., `neo4j-graphrag[qdrant]`, `python-dotenv`, `pydantic`, `openai`).
+# Configure processor parameters
+processor_type = "ollama"
+processor_config = {
+    "model": "qwen2.5:3b",
+    "host": "localhost",
+    "port": 11434
+}
 
----
+# Process text with specified processor
+nodes, relationships = extract_graph_components(
+    text,
+    processor_type=processor_type,
+    processor_config=processor_config
+)
+```
+
+## Advanced Usage
+
+### Processing Large Documents
+
+For large documents, you can use parallel processing:
+
+```python
+from graph_rag import extract_graph_components_parallel
+
+# Process large text with parallel workers
+nodes, relationships = extract_graph_components_parallel(
+    large_text,
+    chunk_size=5000,  # Size of text chunks
+    max_workers=4,    # Number of parallel workers
+    processor_type="ollama",
+    processor_config={"model": "qwen2.5:3b"}
+)
+```
 
 ## Contributing
 
-Contributions are welcome! Follow these steps to contribute:
-
-1. Fork the repository.
-2. Create a new branch for your feature (`git checkout -b feature/your-feature`).
-3. Commit your changes (`git commit -m 'Add new feature'`).
-4. Push to your branch (`git push origin feature/your-feature`).
-5. Open a Pull Request describing your changes.
-
----
+Contributions are welcome! Please feel free to submit a Pull Request.

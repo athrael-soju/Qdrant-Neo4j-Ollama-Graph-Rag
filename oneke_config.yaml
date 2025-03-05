@@ -1,0 +1,48 @@
+task:
+  type: relation_extraction
+  description: "Extract professional and organizational relationships between people and organizations."
+
+data:
+  text_path: "sample_data.txt"
+  verbose: true
+
+model:
+  # Using Qwen2.5 1.5B model which requires much less resources
+  category: Qwen  
+  model_name_or_path: "Qwen/Qwen2.5-3B"
+  vllm_serve: false  # Set to true if using vLLM acceleration
+
+mode: standard  # Use the standard extraction mode (schema + extraction + reflection)
+
+schema:
+  # This defines our relationship schema
+  name: "CustomRelationshipSchema"
+  description: "Schema for professional and organizational relationships"
+  
+# Define a custom schema for relationships
+relation_schema:
+  person_entity:
+    description: "Person entities mentioned in the text"
+    properties:
+      name: "Name of the person"
+  
+  organization_entity:
+    description: "Organization entities mentioned in the text"
+    properties:
+      name: "Name of the organization"
+  
+  location_entity:
+    description: "Location entities mentioned in the text"
+    properties:
+      name: "Name of the location"
+  
+  relationships:
+    description: "Professional relationships between entities"
+    items:
+      head: "Source entity of the relationship"
+      tail: "Target entity of the relationship"
+      relation: "Type of relationship between entities"
+      evidence: "Text evidence supporting this relationship"
+
+# Optional - update the case repository with results
+update_case: false 
