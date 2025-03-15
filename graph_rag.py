@@ -362,20 +362,6 @@ def initialize_clients():
     neo4j_password = os.getenv("NEO4J_PASSWORD")
     collection_name = os.getenv("COLLECTION_NAME", "graphRAGstoreds")    
     
-    # Model and vector settings
-    print(f"Using model provider: {MODEL_PROVIDER}")
-    print(f"Using LLM model: {LLM_MODEL}")
-    print(f"Using embedding model: {EMBEDDING_MODEL}")
-    print(f"Vector dimension: {VECTOR_DIMENSION}")
-    
-    # Debug: Print environment variables
-    print(f"NEO4J_URI: {neo4j_uri}")
-    print(f"NEO4J_USERNAME: {neo4j_username}")
-    print(f"NEO4J_PASSWORD: {'*****' if neo4j_password else 'Not set'}")
-    print(f"QDRANT_HOST: {qdrant_host}")
-    print(f"QDRANT_PORT: {qdrant_port}")
-    print(f"COLLECTION_NAME: {collection_name}")
-    
     # Initialize clients
     neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
     qdrant_client = QdrantClient(
