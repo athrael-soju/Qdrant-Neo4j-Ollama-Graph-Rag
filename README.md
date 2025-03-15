@@ -7,10 +7,12 @@ A knowledge graph-based Retrieval-Augmented Generation (RAG) system that allows 
 
 - **Provider Agnostic**: Works with both OpenAI and Ollama LLM providers
 - **Knowledge Graph Extraction**: Automatically extracts entities and relationships from text
+- **Multiple Extraction Methods**: Choose between LLM-based or spaCy-based entity extraction
 - **Vector Search**: Uses Qdrant for semantic similarity search
 - **Graph Database**: Uses Neo4j to store and query relationship data
 - **Interactive Console**: Simple console interface for ingesting data and asking questions
 - **Streaming Responses**: Support for streaming responses for a better user experience
+- **Parallel Processing**: Optimized for handling large documents with parallel processing
 
 ## Architecture
 
@@ -27,6 +29,7 @@ This creates a powerful retrieval system that can answer questions based on both
 - Python 3.8+
 - Docker (for running Neo4j and Qdrant)
 - OpenAI API key (if using OpenAI) or Ollama running locally (if using Ollama)
+- spaCy (if using spaCy-based entity extraction)
 
 ## Installation
 
@@ -47,18 +50,24 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Start Neo4j and Qdrant with Docker:
+4. If using the spaCy extractor, download the language model:
+```bash
+python -m spacy download en_core_web_sm
+```
+
+5. Start Neo4j and Qdrant with Docker:
 ```bash
 docker-compose up -d
 ```
 
-5. Copy the environment variables template and configure it:
+6. Copy the environment variables template and configure it:
 ```bash
 cp .env.example .env
 ```
 
-6. Edit the `.env` file with your configuration settings:
-   - Set `MODEL_PROVIDER` to either `openai` or `ollama`
+7. Edit the `.env` file with your configuration settings:
+   - Set `DEFAULT_MODEL_PROVIDER` to either `openai` or `ollama`
+   - Set `USE_SPACY_EXTRACTOR` to `true` if you want to use spaCy instead of LLM for entity extraction
    - Configure your vector dimensions based on the model provider
    - Set the appropriate embedding and LLM models
    - Add your API keys or connection details
@@ -138,23 +147,43 @@ The system can be configured through environment variables in the `.env` file:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| MODEL_PROVIDER | LLM provider (`openai` or `ollama`) | - |
-| NEO4J_URI | URI for Neo4j connection | bolt://localhost:7687 |
-| NEO4J_USERNAME | Neo4j username | neo4j |
-| NEO4J_PASSWORD | Neo4j password | - |
-| QDRANT_HOST | Qdrant host | localhost |
-| QDRANT_PORT | Qdrant port | 6333 |
-| COLLECTION_NAME | Qdrant collection name | - |
-| VECTOR_DIMENSION | Dimension of embedding vectors | 1536 (OpenAI) or 768 (Ollama) |
-| EMBEDDING_MODEL | Model for embeddings | text-embedding-3-small (OpenAI) or nomic-embed-text (Ollama) |
-| LLM_MODEL | Model for inference | gpt-4o-mini (OpenAI) or qwen2.5:3b (Ollama) |
+| DEFAULT_MODEL_PROVIDER | LLM provider (`openai` or `ollama`) | `ollama` |
+| USE_SPACY_EXTRACTOR | Whether to use spaCy for entity extraction instead of LLM | `false` |
+| NEO4J_URI | URI for Neo4j connection | `bolt://localhost:7687` |
+| NEO4J_USERNAME | Neo4j username | `neo4j` |
+| NEO4J_PASSWORD | Neo4j password | `morpheus4j` |
+| QDRANT_HOST | Qdrant host | `localhost` |
+| QDRANT_PORT | Qdrant port | `6333` |
+| COLLECTION_NAME | Qdrant collection name | `graphRAGstoreds` |
 | OPENAI_API_KEY | OpenAI API key (if using OpenAI) | - |
-| OLLAMA_HOST | Ollama host (if using Ollama) | localhost |
-| OLLAMA_PORT | Ollama port (if using Ollama) | 11434 |
-| PARALLEL_PROCESSING | Enable parallel processing | true |
-| MAX_WORKERS | Number of parallel workers | 4 |
-| BATCH_SIZE | Batch size for database operations | 100 |
-| CHUNK_SIZE | Size of text chunks for processing | 5000 |
+| OPENAI_INFERENCE_MODEL | Model for inference with OpenAI | `gpt-4o-mini` |
+| OPENAI_EMBEDDING_MODEL | Model for embeddings with OpenAI | `text-embedding-3-small` |
+| OPENAI_VECTOR_DIMENSION | Dimension of embedding vectors for OpenAI | `1536` |
+| OLLAMA_HOST | Ollama host (if using Ollama) | `localhost` |
+| OLLAMA_PORT | Ollama port (if using Ollama) | `11434` |
+| OLLAMA_INFERENCE_MODEL | Model for inference with Ollama | `qwen2.5:3b` |
+| OLLAMA_EMBEDDING_MODEL | Model for embeddings with Ollama | `nomic-embed-text` |
+| OLLAMA_VECTOR_DIMENSION | Dimension of embedding vectors for Ollama | `768` |
+| PARALLEL_PROCESSING | Enable parallel processing | `true` |
+| MAX_WORKERS | Number of parallel workers | `8` |
+| BATCH_SIZE | Batch size for database operations | `100` |
+| CHUNK_SIZE | Size of text chunks for processing | `5000` |
+| USE_STREAMING | Enable streaming responses from LLM | `true` |
+
+## Entity Extraction Options
+
+### LLM-based Extraction (Default)
+- Uses the configured LLM (either OpenAI or Ollama) to extract entities and their relationships
+- More accurate for complex texts and can infer implicit relationships
+- Slower and requires API calls or local LLM service
+- Configured by setting `USE_SPACY_EXTRACTOR=false`
+
+### spaCy-based Extraction
+- Uses spaCy's natural language processing capabilities to extract entities and relationships
+- Faster than LLM-based extraction and works offline
+- May be less accurate for complex or domain-specific relationships
+- Configured by setting `USE_SPACY_EXTRACTOR=true`
+- Requires downloading the spaCy model: `python -m spacy download en_core_web_sm`
 
 ## Extending the System
 
@@ -165,6 +194,14 @@ To add a new model provider:
 1. Create a new file in the `processors` directory (e.g., `my_provider_processor.py`)
 2. Implement the required functions following the pattern in existing processors
 3. Update `processor_factory.py` to include your new provider
+
+### Adding a New Extraction Method
+
+To add a new extraction method:
+
+1. Create a new file in the `processors` directory (e.g., `custom_extractor.py`)
+2. Implement the required functions, particularly the `*_llm_parser` function
+3. Update `processor_factory.py` to include your new extractor
 
 ## License
 
