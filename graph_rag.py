@@ -352,6 +352,7 @@ def clear_data(neo4j_driver, qdrant_client, collection_name):
 
 def initialize_clients():
     """Initialize Neo4j and Qdrant clients from environment variables"""
+    from dotenv import load_dotenv
     load_dotenv('.env')
     
     # Get credentials from environment variables
@@ -369,4 +370,4 @@ def initialize_clients():
         port=int(qdrant_port) if qdrant_port else None
     )
     
-    return neo4j_driver, qdrant_client, collection_name 
+    return neo4j_driver, qdrant_client, collection_name

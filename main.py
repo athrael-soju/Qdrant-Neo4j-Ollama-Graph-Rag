@@ -45,6 +45,7 @@ if __name__ == "__main__":
     # Import processor components based on the selected provider
     from processors.processor_factory import get_processor
     processor = get_processor()
+    # NOTE: If USE_SPACY_EXTRACTOR is enabled, only the extraction (llm_parser) and its related models are overridden.
     llm_parser = processor["llm_parser"]
     embeddings = processor["embeddings"]
     embeddings_batch = processor["embeddings_batch"]
