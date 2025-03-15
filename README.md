@@ -1,4 +1,5 @@
 ![image](https://github.com/user-attachments/assets/900cdf8f-5dca-4105-983b-8534632d78fd)
+
 # GraphRAG
 
 A knowledge graph-based Retrieval-Augmented Generation (RAG) system that allows you to ingest text data, extract entities and relationships, and query the resulting knowledge graph.
@@ -19,7 +20,7 @@ A knowledge graph-based Retrieval-Augmented Generation (RAG) system that allows 
 GraphRAG combines the power of:
 
 1. **LLMs** (Large Language Models) for entity extraction and question answering
-2. **Vector Database** (Qdrant) for semantic search 
+2. **Vector Database** (Qdrant) for semantic search
 3. **Graph Database** (Neo4j) for storing entity relationships
 
 This creates a powerful retrieval system that can answer questions based on both semantic similarity and relationships between entities.
@@ -34,40 +35,46 @@ This creates a powerful retrieval system that can answer questions based on both
 ## Installation
 
 1. Clone the repository:
+
 ```bash
-git clone https://github.com/yourusername/graph-rag.git
-cd graph-rag
+git clone https://github.com/athrael-soju/Qdrant-Neo4j-Ollama-Graph-Rag
+cd Qdrant-Neo4j-Ollama-Graph-Rag
 ```
 
 2. Create and activate a virtual environment:
+
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv/Scripts/activate
 ```
 
 3. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. If using the spaCy extractor, download the language model:
+
 ```bash
 python -m spacy download en_core_web_sm
 ```
 
 5. Start Neo4j and Qdrant with Docker:
+
 ```bash
 docker-compose up -d
 ```
 
 6. Copy the environment variables template and configure it:
+
 ```bash
 cp .env.example .env
 ```
 
 7. Edit the `.env` file with your configuration settings:
    - Set `DEFAULT_MODEL_PROVIDER` to either `openai` or `ollama`
-   - Set `USE_SPACY_EXTRACTOR` to `true` if you want to use spaCy instead of LLM for entity extraction
+   - Set `EXTRACTOR` to `spacy` or `stanza` to switch between extractors
    - Configure your vector dimensions based on the model provider
    - Set the appropriate embedding and LLM models
    - Add your API keys or connection details
@@ -145,45 +152,55 @@ Query processing time: 54.46 seconds (Answer generation: 54.25 seconds)
 
 The system can be configured through environment variables in the `.env` file:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| DEFAULT_MODEL_PROVIDER | LLM provider (`openai` or `ollama`) | `ollama` |
-| USE_SPACY_EXTRACTOR | Whether to use spaCy for entity extraction instead of LLM | `false` |
-| NEO4J_URI | URI for Neo4j connection | `bolt://localhost:7687` |
-| NEO4J_USERNAME | Neo4j username | `neo4j` |
-| NEO4J_PASSWORD | Neo4j password | `morpheus4j` |
-| QDRANT_HOST | Qdrant host | `localhost` |
-| QDRANT_PORT | Qdrant port | `6333` |
-| COLLECTION_NAME | Qdrant collection name | `graphRAGstoreds` |
-| OPENAI_API_KEY | OpenAI API key (if using OpenAI) | - |
-| OPENAI_INFERENCE_MODEL | Model for inference with OpenAI | `gpt-4o-mini` |
-| OPENAI_EMBEDDING_MODEL | Model for embeddings with OpenAI | `text-embedding-3-small` |
-| OPENAI_VECTOR_DIMENSION | Dimension of embedding vectors for OpenAI | `1536` |
-| OLLAMA_HOST | Ollama host (if using Ollama) | `localhost` |
-| OLLAMA_PORT | Ollama port (if using Ollama) | `11434` |
-| OLLAMA_INFERENCE_MODEL | Model for inference with Ollama | `qwen2.5:3b` |
-| OLLAMA_EMBEDDING_MODEL | Model for embeddings with Ollama | `nomic-embed-text` |
-| OLLAMA_VECTOR_DIMENSION | Dimension of embedding vectors for Ollama | `768` |
-| PARALLEL_PROCESSING | Enable parallel processing | `true` |
-| MAX_WORKERS | Number of parallel workers | `8` |
-| BATCH_SIZE | Batch size for database operations | `100` |
-| CHUNK_SIZE | Size of text chunks for processing | `5000` |
-| USE_STREAMING | Enable streaming responses from LLM | `true` |
+| Variable                | Description                               | Default                  |
+| ----------------------- | ----------------------------------------- | ------------------------ | ------- |
+| DEFAULT_MODEL_PROVIDER  | LLM provider (`openai` or `ollama`)       | `ollama`                 |
+| EXTRACTOR               | Whether to use a custom entity extractor  | `stanza`                 | `spacy` |
+| NEO4J_URI               | URI for Neo4j connection                  | `bolt://localhost:7687`  |
+| NEO4J_USERNAME          | Neo4j username                            | `neo4j`                  |
+| NEO4J_PASSWORD          | Neo4j password                            | `morpheus4j`             |
+| QDRANT_HOST             | Qdrant host                               | `localhost`              |
+| QDRANT_PORT             | Qdrant port                               | `6333`                   |
+| COLLECTION_NAME         | Qdrant collection name                    | `graphRAGstoreds`        |
+| OPENAI_API_KEY          | OpenAI API key (if using OpenAI)          | -                        |
+| OPENAI_INFERENCE_MODEL  | Model for inference with OpenAI           | `gpt-4o-mini`            |
+| OPENAI_EMBEDDING_MODEL  | Model for embeddings with OpenAI          | `text-embedding-3-small` |
+| OPENAI_VECTOR_DIMENSION | Dimension of embedding vectors for OpenAI | `1536`                   |
+| OLLAMA_HOST             | Ollama host (if using Ollama)             | `localhost`              |
+| OLLAMA_PORT             | Ollama port (if using Ollama)             | `11434`                  |
+| OLLAMA_INFERENCE_MODEL  | Model for inference with Ollama           | `qwen2.5:3b`             |
+| OLLAMA_EMBEDDING_MODEL  | Model for embeddings with Ollama          | `nomic-embed-text`       |
+| OLLAMA_VECTOR_DIMENSION | Dimension of embedding vectors for Ollama | `768`                    |
+| PARALLEL_PROCESSING     | Enable parallel processing                | `true`                   |
+| MAX_WORKERS             | Number of parallel workers                | `8`                      |
+| BATCH_SIZE              | Batch size for database operations        | `100`                    |
+| CHUNK_SIZE              | Size of text chunks for processing        | `5000`                   |
+| USE_STREAMING           | Enable streaming responses from LLM       | `true`                   |
 
 ## Entity Extraction Options
 
 ### LLM-based Extraction (Default)
+
 - Uses the configured LLM (either OpenAI or Ollama) to extract entities and their relationships
 - More accurate for complex texts and can infer implicit relationships
 - Slower and requires API calls or local LLM service
-- Configured by setting `USE_SPACY_EXTRACTOR=false`
+- Configured by setting `EXTRACTOR` to `stansa` or `spacy`
 
 ### spaCy-based Extraction
+
 - Uses spaCy's natural language processing capabilities to extract entities and relationships
 - Faster than LLM-based extraction and works offline
 - May be less accurate for complex or domain-specific relationships
-- Configured by setting `USE_SPACY_EXTRACTOR=true`
+- Configured by setting `EXTRACTOR` to `spacy`
 - Requires downloading the spaCy model: `python -m spacy download en_core_web_sm`
+
+### stanza-based Extraction
+
+- Uses stanza's natural language processing capabilities to extract entities and relationships
+- Faster than LLM-based extraction and works offline
+- May be less accurate for complex or domain-specific relationships
+- Configured by setting `EXTRACTOR` to `stanza`
+
 
 ## Extending the System
 
@@ -209,4 +226,4 @@ To add a new extraction method:
 
 ## Acknowledgments
 
-This project uses the [neo4j-graphrag](https://github.com/langchain-ai/neo4j-graphrag) library for handling graph-based retrieval. 
+This project uses the [neo4j-graphrag](https://github.com/langchain-ai/neo4j-graphrag) library for handling graph-based retrieval.

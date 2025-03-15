@@ -45,7 +45,7 @@ if __name__ == "__main__":
     # Import processor components based on the selected provider
     from processors.processor_factory import get_processor
     processor = get_processor()
-    # NOTE: If USE_SPACY_EXTRACTOR is enabled, only the extraction (llm_parser) and its related models are overridden.
+    # NOTE: If EXTRACTOR is enabled, only the extraction (llm_parser) and its related models are overridden.
     llm_parser = processor["llm_parser"]
     embeddings = processor["embeddings"]
     embeddings_batch = processor["embeddings_batch"]
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     Single = processor["Single"]
     LLM_MODEL = processor["LLM_MODEL"]
     EMBEDDING_MODEL = processor["EMBEDDING_MODEL"]
-
+    EXTRACTOR = processor["EXTRACTOR"]
     # Interactive console loop
     while True:
         print("\n" + "=" * 50)
@@ -68,6 +68,7 @@ if __name__ == "__main__":
         print(f"Current LLM provider: {model_provider.upper()}")
         print(f"Current Inference Model: {LLM_MODEL}")
         print(f"Current Embedding Model: {EMBEDDING_MODEL}")
+        print(f"Current Extractor: {EXTRACTOR}")
         print("=" * 50)
 
         choice = input("Enter your choice (1-5): ")
