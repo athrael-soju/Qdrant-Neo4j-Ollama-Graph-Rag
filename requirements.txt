@@ -4,3 +4,4 @@ pydantic
 openai
 requests
 typing-extensions
+spacy
