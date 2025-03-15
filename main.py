@@ -16,6 +16,9 @@ from graph_rag import (
     VECTOR_DIMENSION  # This value is set based on the provider in processor_factory
 )
 
+# Import the processor factory
+from processors.processor_factory import get_processor, reload_config
+
 # Load environment variables from .env
 load_dotenv()
 
@@ -42,21 +45,22 @@ if __name__ == "__main__":
     # Ensure collection exists
     create_collection(qdrant_client, collection_name, vector_dimension)
 
-    # Import processor components based on the selected provider
-    from processors.processor_factory import get_processor
-    processor = get_processor()
-    # NOTE: If USE_SPACY_EXTRACTOR is enabled, only the extraction (llm_parser) and its related models are overridden.
-    llm_parser = processor["llm_parser"]
-    embeddings = processor["embeddings"]
-    embeddings_batch = processor["embeddings_batch"]
-    graphrag_query = processor["graphrag_query"]
-    GraphComponents = processor["GraphComponents"]
-    Single = processor["Single"]
-    LLM_MODEL = processor["LLM_MODEL"]
-    EMBEDDING_MODEL = processor["EMBEDDING_MODEL"]
-
     # Interactive console loop
     while True:
+        # Reload configuration and get processor at the start of each loop
+        model_provider, vector_dimension = reload_config()
+        processor = get_processor()
+        
+        # Update processor components
+        llm_parser = processor["llm_parser"]
+        embeddings = processor["embeddings"]
+        embeddings_batch = processor["embeddings_batch"]
+        graphrag_query = processor["graphrag_query"]
+        GraphComponents = processor["GraphComponents"]
+        Single = processor["Single"]
+        LLM_MODEL = processor["LLM_MODEL"]
+        EMBEDDING_MODEL = processor["EMBEDDING_MODEL"]
+
         print("\n" + "=" * 50)
         print("GraphRAG Console - Choose an option:")
         print("1. Ingest data")
@@ -146,9 +150,6 @@ if __name__ == "__main__":
 
             print("Running GraphRAG...")
             start_answer_time = time.time()
-
-            # Refresh the provider setting if needed
-            model_provider = os.getenv("DEFAULT_MODEL_PROVIDER", "openai").strip("'").lower()
 
             # Use streaming response
             stream_response = graphRAG_run(graph_context, query, stream=use_streaming)

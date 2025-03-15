@@ -1,14 +1,25 @@
 import os
 from dotenv import load_dotenv
 
+def reload_config():
+    """
+    Reloads environment variables and returns updated configuration.
+    """
+    load_dotenv(override=True)
+    
+    model_provider = os.getenv("DEFAULT_MODEL_PROVIDER", "openai").strip("'").lower()
+    
+    if model_provider == "openai":
+        vector_dimension = int(os.getenv("OPENAI_VECTOR_DIMENSION", "1536"))
+    else:
+        vector_dimension = int(os.getenv("OLLAMA_VECTOR_DIMENSION", "768"))
+        
+    return model_provider, vector_dimension
+
+# Initial load of environment variables
 load_dotenv()
 
-MODEL_PROVIDER = os.getenv("DEFAULT_MODEL_PROVIDER", "openai").strip("'").lower()
-
-if MODEL_PROVIDER == "openai":
-    VECTOR_DIMENSION = int(os.getenv("OPENAI_VECTOR_DIMENSION", "1536"))
-else:
-    VECTOR_DIMENSION = int(os.getenv("OLLAMA_VECTOR_DIMENSION", "768"))
+MODEL_PROVIDER, VECTOR_DIMENSION = reload_config()
 
 def get_processor() -> dict:
     """
