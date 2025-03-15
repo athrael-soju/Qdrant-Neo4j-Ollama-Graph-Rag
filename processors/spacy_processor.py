@@ -1,7 +1,6 @@
 import spacy
 from pydantic import BaseModel
 from typing import List
-import uuid
 
 # Load the spaCy model (ensure you have run: python -m spacy download en_core_web_sm)
 nlp = spacy.load("en_core_web_sm")

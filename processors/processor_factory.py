@@ -1,26 +1,12 @@
 import os
-import stanza
 from dotenv import load_dotenv
-from pydantic import BaseModel
-from typing import List
-import logging
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Download Stanza model if not already installed
-stanza.download("en")
-
-# Initialize Stanza NLP pipeline
-nlp = stanza.Pipeline("en", processors="tokenize,pos,lemma,depparse,ner,sentiment")
-
 # Determine model provider and extractor
 MODEL_PROVIDER = os.getenv("DEFAULT_MODEL_PROVIDER", "openai").strip("'").lower()
-EXTRACTOR = os.getenv("EXTRACTOR", "stanza").strip("'").lower()
+EXTRACTOR = os.getenv("DEFAULT_EXTRACTOR", "").strip("'").lower()
 
 # Define vector dimension based on model provider
 if MODEL_PROVIDER == "openai":
