@@ -6,7 +6,7 @@ from neo4j_graphrag.retrievers import QdrantNeo4jRetriever
 import uuid
 import os
 import concurrent.futures
-import time
+
 # Import the processor factory
 from processors.processor_factory import get_processor
 
@@ -18,6 +18,7 @@ embeddings_batch = processor["embeddings_batch"]
 graphrag_query = processor["graphrag_query"]
 GraphComponents = processor["GraphComponents"]
 single = processor["Single"]
+MODEL_PROVIDER = processor["MODEL_PROVIDER"]
 VECTOR_DIMENSION = processor["VECTOR_DIMENSION"]
 LLM_MODEL = processor["LLM_MODEL"]
 EMBEDDING_MODEL = processor["EMBEDDING_MODEL"]
@@ -351,6 +352,7 @@ def clear_data(neo4j_driver, qdrant_client, collection_name):
 
 def initialize_clients():
     """Initialize Neo4j and Qdrant clients from environment variables"""
+    from dotenv import load_dotenv
     load_dotenv('.env')
     
     # Get credentials from environment variables
@@ -359,21 +361,7 @@ def initialize_clients():
     neo4j_uri = os.getenv("NEO4J_URI")
     neo4j_username = os.getenv("NEO4J_USERNAME")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
-    collection_name = os.getenv("COLLECTION_NAME", "graphRAGstoreds")
-    
-    # Model and vector settings
-    print(f"Using model provider: {os.getenv('MODEL_PROVIDER', 'openai')}")
-    print(f"Using LLM model: {LLM_MODEL}")
-    print(f"Using embedding model: {EMBEDDING_MODEL}")
-    print(f"Vector dimension: {VECTOR_DIMENSION}")
-    
-    # Debug: Print environment variables
-    print(f"NEO4J_URI: {neo4j_uri}")
-    print(f"NEO4J_USERNAME: {neo4j_username}")
-    print(f"NEO4J_PASSWORD: {'*****' if neo4j_password else 'Not set'}")
-    print(f"QDRANT_HOST: {qdrant_host}")
-    print(f"QDRANT_PORT: {qdrant_port}")
-    print(f"COLLECTION_NAME: {collection_name}")
+    collection_name = os.getenv("COLLECTION_NAME", "graphRAGstoreds")    
     
     # Initialize clients
     neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
@@ -382,4 +370,4 @@ def initialize_clients():
         port=int(qdrant_port) if qdrant_port else None
     )
     
-    return neo4j_driver, qdrant_client, collection_name 
+    return neo4j_driver, qdrant_client, collection_name
