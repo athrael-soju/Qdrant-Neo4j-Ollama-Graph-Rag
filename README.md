@@ -1,66 +1,51 @@
 # GraphRAG: Graph-based Retrieval Augmented Generation
 
-GraphRAG is a Python system that implements a knowledge graph enhanced retrieval-augmented generation (RAG) pipeline. It combines traditional vector-based document retrieval with graph-based knowledge representation for improved context retrieval.
+GraphRAG is a Python library that implements a Graph-based Retrieval Augmented Generation system. It combines vector embeddings with knowledge graphs to improve retrieval for RAG systems.
 
-## Features
+## Project Structure
 
-- Document ingestion from plain text or PDF files
-- Automated chunking and embedding of text segments 
-- NLP-powered knowledge graph construction with:
-  - Term nodes (tokens, n-grams) linked to document chunks
-  - Entity-relationship triplets extracted from text
-  - Full semantic search capabilities
-- Hybrid retrieval combining vector search and graph traversal
-- Interactive querying interface
+The project follows a standard Python package structure:
 
-## Installation
-
-### Prerequisites
-
-GraphRAG requires Neo4j database (Community Edition 5.x or higher) to be installed and running. You can run Neo4j via Docker:
-
-```bash
-docker run -d --name neo4j -p 7474:7474 -p 7687:7687 \
-    -e NEO4J_AUTH=neo4j/testpassword neo4j:5.8.0
 ```
-
-Or install Neo4j directly from [neo4j.com](https://neo4j.com/download/).
-
-### Install GraphRAG
-
-Clone this repository and install the package:
-
-```bash
-git clone https://github.com/yourusername/graphrag.git
-cd graphrag
-pip install -e .
+graphrag/
+├── core/           # Core functionality
+│   ├── ingest.py   # Document ingestion
+│   ├── retrieval.py # Retrieval mechanisms
+│   ├── nlp_graph.py # Graph construction
+│   └── triplets.py  # Triplet extraction
+├── connectors/     # Database connectors
+│   ├── neo4j_connection.py
+│   └── qdrant_connection.py
+├── models/         # ML models and embeddings
+├── utils/          # Utility functions
+│   ├── common.py
+│   └── config.py
+├── cli/            # Command-line interface
+│   └── main.py
+├── data/           # Data handling
+└── tests/          # Tests
+    ├── unit/
+    └── integration/
 ```
 
 ## Quick Start
 
-1. First, set up the Neo4j database with required indexes:
-
 ```bash
+# Create and activate virtual environment
+py -m venv venv    
+venv/Scripts/activate
+
+# Install the package
+pip install -e .
+python -m pip install --upgrade pip
+
+# Set up the Neo4j database with required indexes
 graphrag setup
-```
 
-2. Process a text or PDF document:
-
-```bash
-# Process a single text file
+# Process a document
 graphrag process path/to/document.txt
 
-# Process a PDF file
-graphrag process --pdf path/to/document.pdf
-
-# Process multiple files
-graphrag process file1.txt file2.txt file3.txt
-```
-
-3. Query the system:
-
-```bash
-# Run a single query
+# Query the system
 graphrag query "What type of business is Hugging Face?"
 
 # Start interactive session
@@ -69,7 +54,7 @@ graphrag interactive
 
 ## Configuration
 
-By default, GraphRAG connects to Neo4j at `bolt://localhost:7687` with the credentials `neo4j/testpassword`. You can modify these settings by editing the connection parameters in `graphrag/neo4j_connection.py`.
+By default, GraphRAG connects to Neo4j at `bolt://localhost:7687` with the credentials `neo4j/testpassword`. You can modify these settings by editing the configuration file in `graphrag/utils/config.py`.
 
 ## Architecture
 
@@ -100,6 +85,8 @@ To accelerate embedding and triplet extraction, ensure you have PyTorch installe
 
 ## Examples
 
+See the `examples/` directory for usage examples.
+
 ### Process a document about a tech company:
 
 ```bash
@@ -117,6 +104,10 @@ graphrag query "Where is Hugging Face headquartered?"
 Output might include:
 - Retrieved chunks containing the headquarters information
 - A knowledge graph triplet: (Hugging Face, Inc.) -[HEADQUARTERS_IN]-> (New York City)
+
+## Documentation
+
+For more detailed documentation, see the `docs/` directory.
 
 ## Limitations
 

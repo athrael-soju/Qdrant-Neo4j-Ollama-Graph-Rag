@@ -1,0 +1,18 @@
+GraphRAG is a powerful retrieval-augmented generation system that combines the strengths of graph databases and vector search. It uses Neo4j for storing the knowledge graph structure and Qdrant for efficient vector similarity search.
+
+The system works by first ingesting documents and breaking them into chunks. Each chunk is then processed in multiple ways:
+1. The text is embedded using a sentence transformer model
+2. Important terms and entities are extracted and stored in the graph
+3. Relationships between entities are identified and added to the knowledge graph
+
+When a query comes in, GraphRAG performs a hybrid search:
+- Vector search finds semantically similar content
+- Graph search identifies relevant connections
+- The results are combined to provide comprehensive context for generation
+
+This hybrid approach helps overcome the limitations of pure vector search, allowing for more precise retrieval based on the relationships between concepts.
+
+The GraphRAG architecture consists of several components:
+- An ingestion pipeline that processes documents
+- A retrieval system that combines different search strategies
+- A generation component that produces informative answers 
